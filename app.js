@@ -4,7 +4,7 @@ const { App } = require('@slack/bolt');
 const cron = require('node-cron');
 const { pickRandomMenus } = require('./data/menus');
 const { pickRandomTheme, generateLabels } = require('./data/themes');
-const { renderClosedBox, renderOpenedBox } = require('./data/boxDesigns');
+const { pickBoxImageSet, renderClosedBox, renderOpenedBox } = require('./data/boxDesigns');
 
 const app = new App({
   token: process.env.SLACK_BOT_TOKEN,
@@ -30,7 +30,7 @@ function getTodayKey() {
 /**
  * 미스터리 박스 메시지 블록 생성
  */
-function buildMysteryBoxBlocks(theme, labels, opened = {}) {
+function buildMysteryBoxBlocks(theme, labels, opened = {}, imageUrls = []) {
   const blocks = [
     {
       type: 'header',
@@ -54,9 +54,9 @@ function buildMysteryBoxBlocks(theme, labels, opened = {}) {
 
   for (let i = 0; i < 4; i++) {
     if (opened[i]) {
-      blocks.push(renderOpenedBox(i, labels[i], opened[i].menu));
+      blocks.push(...renderOpenedBox(i, labels[i], opened[i].menu, imageUrls[i]));
     } else {
-      blocks.push(renderClosedBox(i, labels[i]));
+      blocks.push(...renderClosedBox(i, labels[i], imageUrls[i]));
     }
 
     if (i < 3) {
@@ -99,11 +99,12 @@ async function sendMysteryBox(channelId) {
   const dateKey = getTodayKey();
   const theme = pickRandomTheme(dateKey);
   const menus = pickRandomMenus(4);
+  const imageUrls = pickBoxImageSet();
 
   // 각 메뉴의 간접 키워드 + 테마 템플릿으로 이름표 생성 (스타일 중복 방지)
   const labels = generateLabels(menus, theme);
 
-  const blocks = buildMysteryBoxBlocks(theme, labels);
+  const blocks = buildMysteryBoxBlocks(theme, labels, {}, imageUrls);
 
   const result = await app.client.chat.postMessage({
     channel: channelId,
@@ -116,6 +117,7 @@ async function sendMysteryBox(channelId) {
     menus,
     labels,
     theme,
+    imageUrls,
     opened: {},
   });
 
@@ -152,7 +154,7 @@ app.action(/^open_box_\d$/, async ({ action, body, ack, client }) => {
 
   // 큐 기반 직렬 업데이트 (클릭이 절대 무시되지 않음)
   const doUpdate = async () => {
-    const blocks = buildMysteryBoxBlocks(session.theme, session.labels, session.opened);
+    const blocks = buildMysteryBoxBlocks(session.theme, session.labels, session.opened, session.imageUrls);
     await client.chat.update({
       channel,
       ts,
