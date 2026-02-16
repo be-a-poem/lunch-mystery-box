@@ -1,0 +1,1174 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>점심 미스터리 박스</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Noto+Sans+KR:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #f0e6ff;
+  --bg2: #e0d0ff;
+  --box1: #ff6b6b; --box1-dark: #cc4444; --box1-light: #ffaaaa;
+  --box2: #4ecdc4; --box2-dark: #339990; --box2-light: #a0ede6;
+  --box3: #ffe66d; --box3-dark: #ccb030; --box3-light: #fff4a8;
+  --box4: #a78bfa; --box4-dark: #7c5fd6; --box4-light: #cbb8ff;
+  --pixel-border: #2d2d2d;
+  --text: #2d2d2d;
+  --bubble-bg: #fff;
+  --bubble-text: #2d2d2d;
+  --bubble-border: #2d2d2d;
+  --title-color: #2d2d2d;
+  --btn-bg: #fff;
+  --btn-text: #2d2d2d;
+}
+
+body {
+  font-family: 'Noto Sans KR', sans-serif;
+  background: var(--bg);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  overflow-x: hidden;
+  padding: 20px;
+  transition: background 0.8s ease;
+  position: relative;
+}
+
+/* ===== 장식 레이어 ===== */
+#decorations {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.deco-particle {
+  position: absolute;
+  pointer-events: none;
+  opacity: 0.6;
+}
+
+/* ===== 타이틀 ===== */
+.title {
+  font-family: 'Press Start 2P', monospace;
+  font-size: clamp(14px, 3.5vw, 28px);
+  color: var(--title-color);
+  text-align: center;
+  margin: 30px 0 16px;
+  line-height: 1.8;
+  position: relative;
+  z-index: 1;
+  text-shadow: 3px 3px 0 rgba(255,255,255,0.5);
+  transition: color 0.6s;
+}
+
+.title-emoji {
+  font-family: 'Noto Sans KR', sans-serif;
+  font-size: 1.4em;
+}
+
+.subtitle {
+  font-family: 'Noto Sans KR', sans-serif;
+  font-size: clamp(13px, 2vw, 17px);
+  color: var(--title-color);
+  opacity: 0.7;
+  margin-bottom: 36px;
+  text-align: center;
+  position: relative;
+  z-index: 1;
+  transition: color 0.6s;
+}
+
+/* ===== 상자 컨테이너 ===== */
+.boxes {
+  display: flex;
+  gap: clamp(16px, 3vw, 36px);
+  justify-content: center;
+  flex-wrap: wrap;
+  position: relative;
+  z-index: 1;
+  max-width: 960px;
+  width: 100%;
+  margin-bottom: 36px;
+}
+
+/* ===== 개별 박스 래퍼 ===== */
+.box-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  opacity: 0;
+  transform: translateY(-80px);
+}
+
+.box-wrapper.dropped {
+  animation: dropIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+/* ===== 말풍선 ===== */
+.speech-bubble {
+  position: relative;
+  background: var(--bubble-bg);
+  border: 3px solid var(--bubble-border);
+  padding: 10px 14px;
+  font-size: clamp(11px, 1.5vw, 14px);
+  font-weight: 700;
+  color: var(--bubble-text);
+  max-width: 190px;
+  min-height: 44px;
+  text-align: center;
+  line-height: 1.5;
+  word-break: keep-all;
+  box-shadow: 3px 3px 0 var(--bubble-border);
+  transition: background 0.6s, border-color 0.6s, color 0.6s;
+}
+
+.speech-bubble::after {
+  content: '';
+  position: absolute;
+  bottom: -12px; left: 50%;
+  transform: translateX(-50%);
+  border-left: 8px solid transparent;
+  border-right: 8px solid transparent;
+  border-top: 12px solid var(--bubble-border);
+}
+.speech-bubble::before {
+  content: '';
+  position: absolute;
+  bottom: -8px; left: 50%;
+  transform: translateX(-50%);
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 9px solid var(--bubble-bg);
+  z-index: 1;
+}
+
+/* ===== 픽셀 아트 상자 ===== */
+.box {
+  width: clamp(120px, 22vw, 180px);
+  height: clamp(120px, 22vw, 180px);
+  position: relative;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+.box:not(.opened):hover {
+  animation: shake 0.4s ease-in-out infinite;
+}
+
+.box-body {
+  width: 100%; height: 75%;
+  position: absolute; bottom: 0;
+  border: 4px solid var(--pixel-border);
+  box-shadow: 4px 4px 0 var(--pixel-border), inset 0 0 0 3px rgba(255,255,255,0.25);
+  transition: all 0.4s;
+}
+.box-lid {
+  width: 110%; height: 28%;
+  position: absolute; top: 10%; left: -5%;
+  border: 4px solid var(--pixel-border);
+  box-shadow: 4px 4px 0 var(--pixel-border);
+  transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  z-index: 2;
+}
+.box-ribbon-v {
+  position: absolute; width: 20%; height: 75%;
+  bottom: 0; left: 40%;
+  border-left: 3px solid rgba(255,255,255,0.35);
+  border-right: 3px solid rgba(255,255,255,0.35);
+  z-index: 1;
+}
+.box-ribbon-h {
+  position: absolute; width: 100%; height: 40%;
+  top: 30%; left: 0;
+  border-top: 3px solid rgba(255,255,255,0.35);
+  border-bottom: 3px solid rgba(255,255,255,0.35);
+  z-index: 3;
+}
+.box-bow {
+  position: absolute; top: 0; left: 50%;
+  transform: translate(-50%, -60%);
+  z-index: 4; width: 36px; height: 24px;
+}
+.box-bow::before, .box-bow::after {
+  content: '';
+  position: absolute; top: 4px;
+  width: 16px; height: 16px;
+  border: 3px solid var(--pixel-border);
+}
+.box-bow::before { left: 0; }
+.box-bow::after { right: 0; }
+
+.box-highlight {
+  position: absolute;
+  background: rgba(255,255,255,0.4);
+  z-index: 1;
+}
+.box-highlight.h1 { width: 8px; height: 8px; top: 35%; left: 15%; }
+.box-highlight.h2 { width: 4px; height: 12px; top: 38%; left: 25%; }
+
+/* 상자 색상 */
+.box-wrapper:nth-child(1) .box-body { background: var(--box1); }
+.box-wrapper:nth-child(1) .box-lid { background: var(--box1-dark); }
+.box-wrapper:nth-child(1) .box-bow::before,
+.box-wrapper:nth-child(1) .box-bow::after { background: var(--box1-light); }
+.box-wrapper:nth-child(2) .box-body { background: var(--box2); }
+.box-wrapper:nth-child(2) .box-lid { background: var(--box2-dark); }
+.box-wrapper:nth-child(2) .box-bow::before,
+.box-wrapper:nth-child(2) .box-bow::after { background: var(--box2-light); }
+.box-wrapper:nth-child(3) .box-body { background: var(--box3); }
+.box-wrapper:nth-child(3) .box-lid { background: var(--box3-dark); }
+.box-wrapper:nth-child(3) .box-bow::before,
+.box-wrapper:nth-child(3) .box-bow::after { background: var(--box3-light); }
+.box-wrapper:nth-child(4) .box-body { background: var(--box4); }
+.box-wrapper:nth-child(4) .box-lid { background: var(--box4-dark); }
+.box-wrapper:nth-child(4) .box-bow::before,
+.box-wrapper:nth-child(4) .box-bow::after { background: var(--box4-light); }
+
+/* ===== 열림 효과 ===== */
+.box.opened .box-lid {
+  transform: translateY(-80%) rotate(-30deg);
+  opacity: 0.6;
+}
+.box.opened .box-body {
+  box-shadow: 4px 4px 0 var(--pixel-border),
+    0 0 40px rgba(255,255,150,0.8),
+    0 0 80px rgba(255,255,150,0.3);
+}
+
+.glow-burst {
+  position: absolute; top: 50%; left: 50%;
+  width: 0; height: 0;
+  background: radial-gradient(circle, rgba(255,255,200,0.9) 0%, transparent 70%);
+  transform: translate(-50%, -50%);
+  pointer-events: none; z-index: 10;
+}
+.glow-burst.active { animation: glowBurst 0.6s ease-out forwards; }
+
+/* ===== 음식 결과 (크게!) ===== */
+.menu-result {
+  position: absolute;
+  top: 45%; left: 50%;
+  transform: translate(-50%, -50%) scale(0);
+  text-align: center;
+  z-index: 11; pointer-events: none;
+}
+.menu-result.show {
+  animation: popIn 0.5s 0.15s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+/* 픽셀 접시 */
+.food-plate {
+  width: clamp(80px, 16vw, 120px);
+  height: clamp(80px, 16vw, 120px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  margin: 0 auto;
+}
+
+.menu-emoji {
+  font-size: clamp(52px, 11vw, 80px);
+  display: block;
+  filter: drop-shadow(3px 3px 0 rgba(0,0,0,0.3));
+  line-height: 1;
+}
+
+/* 음식 효과: 김 */
+.food-steam {
+  position: absolute;
+  top: -8px; left: 50%;
+  transform: translateX(-50%);
+  display: flex; gap: 6px;
+  pointer-events: none;
+}
+.food-steam span {
+  display: block;
+  width: 4px; height: 16px;
+  background: rgba(255,255,255,0.6);
+  border-radius: 2px;
+  animation: steamFloat 1.2s ease-in-out infinite;
+}
+.food-steam span:nth-child(2) { animation-delay: 0.3s; height: 12px; }
+.food-steam span:nth-child(3) { animation-delay: 0.6s; height: 14px; }
+
+.menu-name {
+  font-size: clamp(13px, 2vw, 18px);
+  font-weight: 900;
+  color: #fff;
+  background: #2d2d2d;
+  border: 3px solid var(--pixel-border);
+  padding: 4px 12px;
+  margin-top: 2px;
+  display: inline-block;
+  box-shadow: 2px 2px 0 var(--pixel-border);
+  white-space: nowrap;
+}
+
+/* ===== 파티클 ===== */
+.particle {
+  position: absolute;
+  width: 6px; height: 6px;
+  border: 2px solid var(--pixel-border);
+  z-index: 12; pointer-events: none;
+}
+
+/* ===== 다시 뽑기 버튼 ===== */
+.retry-btn {
+  font-family: 'Press Start 2P', monospace;
+  font-size: clamp(10px, 2vw, 14px);
+  padding: 16px 32px;
+  background: var(--btn-bg);
+  color: var(--btn-text);
+  border: 4px solid var(--pixel-border);
+  cursor: pointer;
+  box-shadow: 4px 4px 0 var(--pixel-border);
+  transition: all 0.15s, background 0.6s, color 0.6s;
+  position: relative; z-index: 1;
+  margin-top: 10px;
+}
+.retry-btn:hover {
+  transform: translate(2px, 2px);
+  box-shadow: 2px 2px 0 var(--pixel-border);
+}
+.retry-btn:active {
+  transform: translate(4px, 4px);
+  box-shadow: none;
+}
+
+/* ===== 애니메이션 ===== */
+@keyframes dropIn {
+  0% { opacity: 0; transform: translateY(-80px); }
+  60% { opacity: 1; transform: translateY(10px); }
+  80% { transform: translateY(-5px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+@keyframes shake {
+  0%, 100% { transform: rotate(0deg); }
+  20% { transform: rotate(-4deg); }
+  40% { transform: rotate(4deg); }
+  60% { transform: rotate(-3deg); }
+  80% { transform: rotate(3deg); }
+}
+@keyframes glowBurst {
+  0% { width: 0; height: 0; opacity: 1; }
+  100% { width: 280px; height: 280px; opacity: 0; }
+}
+@keyframes popIn {
+  0% { transform: translate(-50%, -50%) scale(0); }
+  60% { transform: translate(-50%, -50%) scale(1.15); }
+  100% { transform: translate(-50%, -50%) scale(1); }
+}
+@keyframes particleFly {
+  0% { opacity: 1; transform: translate(0,0) scale(1); }
+  100% { opacity: 0; transform: translate(var(--px), var(--py)) scale(0); }
+}
+@keyframes steamFloat {
+  0%, 100% { opacity: 0.3; transform: translateY(0) scaleY(1); }
+  50% { opacity: 0.7; transform: translateY(-10px) scaleY(1.3); }
+}
+@keyframes twinkle {
+  0%, 100% { opacity: 0.2; transform: scale(0.8); }
+  50% { opacity: 1; transform: scale(1.2); }
+}
+@keyframes floatUp {
+  0% { opacity: 0; transform: translateY(100vh) rotate(0deg); }
+  10% { opacity: 0.7; }
+  90% { opacity: 0.7; }
+  100% { opacity: 0; transform: translateY(-20px) rotate(360deg); }
+}
+@keyframes pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.8; }
+}
+@keyframes matrixFall {
+  0% { opacity: 0; transform: translateY(-20px); }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { opacity: 0; transform: translateY(100vh); }
+}
+
+/* ===== 장난 이벤트 ===== */
+@keyframes screenShake {
+  0%, 100% { transform: translate(0, 0); }
+  10% { transform: translate(-5px, -3px); }
+  20% { transform: translate(5px, 3px); }
+  30% { transform: translate(-3px, 5px); }
+  40% { transform: translate(3px, -5px); }
+  50% { transform: translate(-5px, 3px); }
+  60% { transform: translate(5px, -3px); }
+  70% { transform: translate(-3px, -5px); }
+  80% { transform: translate(3px, 5px); }
+  90% { transform: translate(-5px, -3px); }
+}
+.screen-shake { animation: screenShake 0.5s ease-in-out; }
+.prank-result .food-plate { background: #333 !important; border-color: #ff4444 !important; box-shadow: 0 0 20px rgba(255,0,0,0.3); }
+.prank-result .menu-name { color: #ff4444; background: #1a1a1a; border-color: #ff4444; white-space: normal; }
+
+/* ===== 반응형 ===== */
+@media (max-width: 650px) {
+  .boxes { gap: 12px; }
+  .box { width: 90px; height: 90px; }
+  .speech-bubble { max-width: 100px; font-size: 10px; padding: 6px 8px; }
+  .box-bow { width: 24px; height: 16px; }
+  .box-bow::before, .box-bow::after { width: 10px; height: 10px; }
+  .food-plate { width: 70px; height: 70px; }
+}
+@media (max-width: 420px) {
+  .boxes { flex-wrap: wrap; max-width: 300px; }
+  .box-wrapper { width: 45%; }
+  .box { width: 110px; height: 110px; }
+  .speech-bubble { max-width: 130px; font-size: 11px; }
+  .food-plate { width: 80px; height: 80px; }
+}
+</style>
+</head>
+<body>
+<div id="decorations"></div>
+<div class="title"><span class="title-emoji">🎁</span> MYSTERY BOX!</div>
+<div class="subtitle">상자를 클릭해서 오늘의 점심을 확인하세요!</div>
+<div class="boxes" id="boxes"></div>
+<button class="retry-btn" id="retryBtn">RETRY ↻</button>
+<script>
+// ===== MOOD SYSTEM =====
+const moodDefs = {
+  cute: {
+    bg: '#f0e6ff', bg2: '#e0d0ff',
+    box: [['#ff6b6b','#cc4444','#ffaaaa'],['#4ecdc4','#339990','#a0ede6'],['#ffe66d','#ccb030','#fff4a8'],['#a78bfa','#7c5fd6','#cbb8ff']],
+    border: '#2d2d2d', text: '#2d2d2d', titleColor: '#2d2d2d',
+    bubbleBg: '#fff', bubbleText: '#2d2d2d', bubbleBorder: '#2d2d2d',
+    btnBg: '#fff', btnText: '#2d2d2d',
+    deco: 'hearts',
+  },
+  fantasy: {
+    bg: '#1a1a2e', bg2: '#16213e',
+    box: [['#c9a227','#a07d1c','#e8c84a'],['#8b4513','#6b3410','#b87333'],['#b8860b','#8b6508','#daa520'],['#9370db','#6a4fb5','#b39ddb']],
+    border: '#ffd700', text: '#ffd700', titleColor: '#ffd700',
+    bubbleBg: '#1a1a2e', bubbleText: '#ffd700', bubbleBorder: '#ffd700',
+    btnBg: '#2a1a3e', btnText: '#ffd700',
+    deco: 'sparkles',
+  },
+  fairytale: {
+    bg: '#fff0f5', bg2: '#ffe4ec',
+    box: [['#ff9ff3','#e07ad3','#ffccf9'],['#a0d2ff','#70b0e0','#c8e4ff'],['#fffba0','#e0d060','#fffdd0'],['#c8b0ff','#a080e0','#e0d0ff']],
+    border: '#cc6699', text: '#8b4572', titleColor: '#cc6699',
+    bubbleBg: '#fff8fa', bubbleText: '#8b4572', bubbleBorder: '#ffaacc',
+    btnBg: '#fff0f5', btnText: '#cc6699',
+    deco: 'stars',
+  },
+  space: {
+    bg: '#0a0a2a', bg2: '#0d1137',
+    box: [['#00d4ff','#0099bb','#66e5ff'],['#8b5cf6','#6b3fd4','#b490ff'],['#06d6a0','#049970','#66ecc8'],['#ff6b9d','#cc4477','#ff9dbe']],
+    border: '#00d4ff', text: '#e0e0ff', titleColor: '#00d4ff',
+    bubbleBg: '#111144', bubbleText: '#00d4ff', bubbleBorder: '#0088aa',
+    btnBg: '#111133', btnText: '#00d4ff',
+    deco: 'starfield',
+  },
+  mystic: {
+    bg: '#1a0a2e', bg2: '#2d1b4e',
+    box: [['#9b59b6','#7b3a96','#c39bd3'],['#e6b422','#b8901a','#f0d060'],['#8e44ad','#6c2d8d','#b370cf'],['#f39c12','#c67d0e','#f7c56e']],
+    border: '#e6b422', text: '#e6b422', titleColor: '#c39bd3',
+    bubbleBg: '#1a0a2e', bubbleText: '#e6b422', bubbleBorder: '#9b59b6',
+    btnBg: '#2d1b4e', btnText: '#e6b422',
+    deco: 'mysticOrbs',
+  },
+  horror: {
+    bg: '#0d0d0d', bg2: '#1a1a1a',
+    box: [['#4a0e0e','#330909','#6b1c1c'],['#1a3a1a','#0d2a0d','#2a5a2a'],['#3a2a0a','#2a1a00','#5a4a1a'],['#2a1a3a','#1a0d2a','#4a3a5a']],
+    border: '#00ff41', text: '#00ff41', titleColor: '#ff3333',
+    bubbleBg: '#111', bubbleText: '#00ff41', bubbleBorder: '#004411',
+    btnBg: '#111', btnText: '#00ff41',
+    deco: 'ghosts',
+  },
+  retro: {
+    bg: '#1a0533', bg2: '#2a0844',
+    box: [['#ff00ff','#cc00cc','#ff66ff'],['#00ffff','#00cccc','#66ffff'],['#ffff00','#cccc00','#ffff66'],['#ff4444','#cc2222','#ff8888']],
+    border: '#ff00ff', text: '#fff', titleColor: '#00ffff',
+    bubbleBg: '#1a0533', bubbleText: '#ff00ff', bubbleBorder: '#ff00ff',
+    btnBg: '#2a0844', btnText: '#00ffff',
+    deco: 'neonGrid',
+  },
+  nature: {
+    bg: '#f5ebe0', bg2: '#edddcc',
+    box: [['#a8b87c','#8a9a60','#c4d4a0'],['#d4a574','#b48050','#e8c8a0'],['#c9b99a','#a89878','#e0d4b8'],['#8fbc8f','#6b9a6b','#b0d8b0']],
+    border: '#5a4a3a', text: '#4a3a2a', titleColor: '#6b5b4b',
+    bubbleBg: '#faf5ef', bubbleText: '#5a4a3a', bubbleBorder: '#a08060',
+    btnBg: '#f5ebe0', btnText: '#5a4a3a',
+    deco: 'leaves',
+  },
+  news: {
+    bg: '#eef2f7', bg2: '#e0e8f0',
+    box: [['#e74c3c','#c0392b','#f08080'],['#3498db','#2980b9','#85c1e9'],['#f1c40f','#d4ac0d','#f9e154'],['#2c3e50','#1a252f','#5d7a8c']],
+    border: '#2c3e50', text: '#2c3e50', titleColor: '#c0392b',
+    bubbleBg: '#fff', bubbleText: '#2c3e50', bubbleBorder: '#2c3e50',
+    btnBg: '#fff', btnText: '#2c3e50',
+    deco: 'none',
+  },
+  korean: {
+    bg: '#f8f0e0', bg2: '#f0e4cc',
+    box: [['#c0392b','#a02a1e','#e06050'],['#1a6b3c','#0e5028','#2a8b5c'],['#d4a017','#b08014','#e8c040'],['#2c3e6b','#1a2844','#4a6090']],
+    border: '#3a2a1a', text: '#3a2a1a', titleColor: '#c0392b',
+    bubbleBg: '#faf5ea', bubbleText: '#3a2a1a', bubbleBorder: '#8b7355',
+    btnBg: '#f0e4cc', btnText: '#3a2a1a',
+    deco: 'dancheong',
+  },
+  bold: {
+    bg: '#1a0000', bg2: '#2a0505',
+    box: [['#ff0000','#cc0000','#ff4444'],['#ff6600','#cc4400','#ff9944'],['#ffcc00','#cc9900','#ffdd44'],['#ff0066','#cc0044','#ff4488']],
+    border: '#ff3300', text: '#fff', titleColor: '#ff3300',
+    bubbleBg: '#1a0000', bubbleText: '#fff', bubbleBorder: '#ff3300',
+    btnBg: '#2a0505', btnText: '#ff3300',
+    deco: 'flames',
+  },
+  travel: {
+    bg: '#fff5e6', bg2: '#ffe8cc',
+    box: [['#ff8c42','#d96a2a','#ffb380'],['#2ec4b6','#1fa396','#6eddd0'],['#e8505b','#c03040','#f08888'],['#5a89b0','#3a6a90','#8ab4d4']],
+    border: '#4a3520', text: '#4a3520', titleColor: '#d96a2a',
+    bubbleBg: '#fffaf0', bubbleText: '#4a3520', bubbleBorder: '#d4a060',
+    btnBg: '#fff5e6', btnText: '#4a3520',
+    deco: 'none',
+  },
+  dev: {
+    bg: '#0c0c0c', bg2: '#111',
+    box: [['#00cc66','#009944','#44ee88'],['#0088ff','#0066cc','#44aaff'],['#ff8800','#cc6600','#ffaa44'],['#cc44ff','#9933cc','#dd77ff']],
+    border: '#00cc66', text: '#00ff77', titleColor: '#00ff77',
+    bubbleBg: '#0c0c0c', bubbleText: '#00ff77', bubbleBorder: '#006633',
+    btnBg: '#111', btnText: '#00ff77',
+    deco: 'matrix',
+  },
+};
+
+const moodMap = {
+  '운세풍': 'mystic', '도발풍': 'bold', '감성풍': 'nature',
+  'RPG풍': 'fantasy', '확률풍': 'news', '여행풍': 'travel',
+  '게임풍': 'retro', '무협풍': 'fantasy', '뉴스풍': 'news',
+  '동화풍': 'fairytale', '포켓몬풍': 'retro', '개발자풍': 'dev',
+  'SNS풍': 'cute', '탐정풍': 'horror', '타로카드풍': 'mystic',
+  '우주풍': 'space', '공포풍': 'horror', '조선시대풍': 'korean',
+  'SF풍': 'space', '디즈니풍': 'fairytale',
+};
+
+// ===== THEMES =====
+const themes = [
+  { name: '운세풍', templates: [
+    { style: 'short', text: '{keyword}의 기운...' },
+    { style: 'short', text: '{keyword}. 운명이다.' },
+    { style: 'story', text: '점성술사가 수정구슬에서 {keyword}을(를) 보았다' },
+    { style: 'dialogue', text: '"오늘의 운세는... {keyword}이옵니다"' },
+    { style: 'exclamation', text: '대길! {keyword}의 기운이 충만하도다!' },
+    { style: 'question', text: '{keyword}이(가) 당신의 운명일까?' },
+  ]},
+  { name: '도발풍', templates: [
+    { style: 'short', text: '{keyword}? 겁나면 패스해.' },
+    { style: 'story', text: '전설에 따르면 {keyword}에 도전한 자만 살아남았다' },
+    { style: 'dialogue', text: '"진짜 {keyword} 감당할 수 있어?"' },
+    { style: 'exclamation', text: '{keyword}에 올인하는 미친 선택!' },
+    { style: 'question', text: '{keyword} 앞에서도 도망치지 않을 자신 있나?' },
+  ]},
+  { name: '감성풍', templates: [
+    { style: 'short', text: '{keyword}... 그리운 맛.' },
+    { style: 'story', text: '비 오는 창가에서 문득 {keyword}이(가) 떠올랐다' },
+    { style: 'dialogue', text: '"있잖아... 오늘 {keyword} 생각이 나"' },
+    { style: 'exclamation', text: '{keyword}이(가) 위로해주는 오늘!' },
+    { style: 'question', text: '가끔은 {keyword}도 괜찮지 않을까?' },
+  ]},
+  { name: 'RPG풍', templates: [
+    { style: 'short', text: '[레어] {keyword}의 검.' },
+    { style: 'story', text: '어둠 속 보물상자를 열자 {keyword}의 빛이 새어나왔다' },
+    { style: 'dialogue', text: '"용사여, {keyword}의 힘을 느껴라!"' },
+    { style: 'exclamation', text: '전설급 드롭! {keyword}의 반지 획득!' },
+    { style: 'question', text: '{keyword}의 던전에 입장할 준비가 되었는가?' },
+  ]},
+  { name: '확률풍', templates: [
+    { style: 'short', text: '{keyword}일 확률 73.2%.' },
+    { style: 'story', text: '1000번의 시뮬레이션 끝에 {keyword}이(가) 최적해였다' },
+    { style: 'dialogue', text: '"확률적으로 {keyword}이(가) 정답이에요"' },
+    { style: 'exclamation', text: '대박! {keyword} 당첨 확률 급상승!' },
+    { style: 'question', text: '이 안에 {keyword}이(가) 있을까 없을까?' },
+  ]},
+  { name: '여행풍', templates: [
+    { style: 'short', text: '{keyword}의 본고장에서.' },
+    { style: 'story', text: '골목길을 헤매다 우연히 {keyword}의 향기를 따라갔다' },
+    { style: 'dialogue', text: '"여기까지 왔으면 {keyword}은(는) 먹어봐야지"' },
+    { style: 'exclamation', text: '현지인만 아는 {keyword}의 맛!' },
+    { style: 'question', text: '이 거리 끝에 {keyword}이(가) 기다리고 있다면?' },
+  ]},
+  { name: '게임풍', templates: [
+    { style: 'short', text: '[SSR] {keyword}.' },
+    { style: 'story', text: '10연차 가챠를 돌렸더니 {keyword}이(가) 등장했다' },
+    { style: 'dialogue', text: '"파티원 모집: {keyword} 레이드 갈 사람!"' },
+    { style: 'exclamation', text: '레전더리 드롭! {keyword} 획득!' },
+    { style: 'question', text: '{keyword}의 숨겨진 스테이지를 클리어할 수 있을까?' },
+  ]},
+  { name: '무협풍', templates: [
+    { style: 'short', text: '{keyword}의 비급.' },
+    { style: 'story', text: '강호를 떠돌다 {keyword}의 초식을 깨달았다' },
+    { style: 'dialogue', text: '"시주, {keyword}의 오의를 전수하겠소"' },
+    { style: 'exclamation', text: '{keyword}의 내공이 폭발한다!' },
+    { style: 'question', text: '{keyword}의 검법을 익히면 천하제일이 될 수 있을까?' },
+  ]},
+  { name: '뉴스풍', templates: [
+    { style: 'short', text: '[속보] {keyword}.' },
+    { style: 'story', text: '취재 결과 {keyword}이(가) 오늘의 핵심 이슈로 떠올랐다' },
+    { style: 'dialogue', text: '"앵커: 지금 {keyword} 관련 긴급 뉴스입니다"' },
+    { style: 'exclamation', text: '호외! 호외! {keyword} 발견!' },
+    { style: 'question', text: '{keyword}이(가) 오늘의 헤드라인을 장식할까?' },
+  ]},
+  { name: '동화풍', templates: [
+    { style: 'short', text: '{keyword}의 마법.' },
+    { style: 'story', text: '숲속 오두막에서 마녀가 {keyword}을(를) 끓이고 있었다' },
+    { style: 'dialogue', text: '"거울아 거울아, 오늘의 점심은 {keyword}이니?"' },
+    { style: 'exclamation', text: '동화 속에서 튀어나온 {keyword}!' },
+    { style: 'question', text: '신데렐라가 무도회 대신 {keyword}을(를) 택했다면?' },
+  ]},
+  { name: '포켓몬풍', templates: [
+    { style: 'short', text: '야생의 {keyword}!' },
+    { style: 'story', text: '풀숲을 걷다 야생의 {keyword}이(가) 나타났다' },
+    { style: 'dialogue', text: '"가자, 피카츄! {keyword}을(를) 잡아라!"' },
+    { style: 'exclamation', text: '{keyword} 포획 성공! 도감에 등록!' },
+    { style: 'question', text: '이 몬스터볼 안에 {keyword}이(가) 있다면?' },
+  ]},
+  { name: '개발자풍', templates: [
+    { style: 'short', text: 'return {keyword};' },
+    { style: 'story', text: '코드리뷰 중 {keyword}에 대한 주석을 발견했다' },
+    { style: 'dialogue', text: '"이 버그... {keyword} 먹으면 풀릴 것 같아"' },
+    { style: 'exclamation', text: 'Build Successful: {keyword} deployed!' },
+    { style: 'question', text: 'if (배고픔 === true) → {keyword}?' },
+  ]},
+  { name: 'SNS풍', templates: [
+    { style: 'short', text: '#{keyword} #맛스타그램' },
+    { style: 'story', text: '피드를 스크롤하다 {keyword} 사진에 멈췄다' },
+    { style: 'dialogue', text: '"이거 {keyword} 아니야? 스토리 올려야지!"' },
+    { style: 'exclamation', text: '{keyword} 먹방 영상 실시간 트렌드 1위!' },
+    { style: 'question', text: '{keyword} 인증샷 올리면 좋아요 몇 개 받을까?' },
+  ]},
+  { name: '탐정풍', templates: [
+    { style: 'short', text: '단서: {keyword}.' },
+    { style: 'story', text: '현장에 남겨진 유일한 증거는 {keyword}의 흔적이었다' },
+    { style: 'dialogue', text: '"셜록, 이 사건의 열쇠는 {keyword}입니다"' },
+    { style: 'exclamation', text: '사건 해결! 범인의 정체는 {keyword}!' },
+    { style: 'question', text: '{keyword}의 냄새... 어디서 맡아본 것 같지 않아?' },
+  ]},
+  { name: '타로카드풍', templates: [
+    { style: 'short', text: '{keyword}의 카드.' },
+    { style: 'story', text: '카드를 뒤집자 {keyword}의 그림이 빛나고 있었다' },
+    { style: 'dialogue', text: '"이 카드가 가리키는 건... {keyword}이에요"' },
+    { style: 'exclamation', text: '별의 축복! {keyword}의 카드가 당신을 비춘다!' },
+    { style: 'question', text: '{keyword}의 카드를 뽑은 당신, 운명을 받아들이겠는가?' },
+  ]},
+  { name: '우주풍', templates: [
+    { style: 'short', text: '{keyword} 성운 발견.' },
+    { style: 'story', text: '화성 탐사 로버가 {keyword}의 흔적을 발견했다' },
+    { style: 'dialogue', text: '"휴스턴, {keyword} 신호를 수신했습니다"' },
+    { style: 'exclamation', text: '블랙홀도 빨아들이지 못하는 {keyword}의 매력!' },
+    { style: 'question', text: '외계인이 지구에서 가장 놀란 게 {keyword}이라면?' },
+  ]},
+  { name: '공포풍', templates: [
+    { style: 'short', text: '{keyword}... 뒤를 봐.' },
+    { style: 'story', text: '자정이 되자 부엌에서 {keyword}의 냄새가 스멀스멀 올라왔다' },
+    { style: 'dialogue', text: '"저기... {keyword} 냄새 나는 거 나만 느끼는 거야?"' },
+    { style: 'exclamation', text: '소름끼치게 맛있는 {keyword}의 저주!' },
+    { style: 'question', text: '이 어둠 속에서 {keyword}을(를) 열 용기가 있는가?' },
+  ]},
+  { name: '조선시대풍', templates: [
+    { style: 'short', text: '전하, {keyword}.' },
+    { style: 'story', text: '어의가 {keyword}을(를) 처방하자 전하의 용안이 밝아졌다' },
+    { style: 'dialogue', text: '"마마, {keyword}의 수라를 올리옵니다"' },
+    { style: 'exclamation', text: '궁중 비법! {keyword}의 비밀 전수!' },
+    { style: 'question', text: '전하가 {keyword}을(를) 내리시면 받겠는가?' },
+  ]},
+  { name: 'SF풍', templates: [
+    { style: 'short', text: 'AI 추천: {keyword}.' },
+    { style: 'story', text: 'AI가 빅데이터를 분석한 결과 최적의 메뉴는 {keyword}이었다' },
+    { style: 'dialogue', text: '"시스템: {keyword} 호환성 100%. 섭취를 권장합니다"' },
+    { style: 'exclamation', text: '미래에서 온 {keyword}의 기술력!' },
+    { style: 'question', text: '{keyword}이(가) 인류의 마지막 레시피라면?' },
+  ]},
+  { name: '디즈니풍', templates: [
+    { style: 'short', text: '마법의 {keyword}.' },
+    { style: 'story', text: '마법의 양탄자가 {keyword}이(가) 있는 곳으로 날아갔다' },
+    { style: 'dialogue', text: '"렛잇고~ {keyword}은(는) 포기 못 해~"' },
+    { style: 'exclamation', text: '엘사도 녹는 {keyword}의 맛!' },
+    { style: 'question', text: '알라딘의 세 번째 소원이 {keyword}이었다면?' },
+  ]},
+];
+
+const STYLES = ['short', 'story', 'dialogue', 'exclamation', 'question'];
+
+function pickRandomTheme() { return themes[Math.floor(Math.random() * themes.length)]; }
+function pickRandomMenus(n) { return [...menus].sort(() => Math.random() - 0.5).slice(0, n); }
+
+function generateLabels(ms, theme) {
+  const byStyle = {};
+  for (const t of theme.templates) { if (!byStyle[t.style]) byStyle[t.style] = []; byStyle[t.style].push(t); }
+  const avail = STYLES.filter(s => byStyle[s]?.length);
+  const sh = [...avail].sort(() => Math.random() - 0.5);
+  const ps = [0,1,2,3].map(i => sh[i % sh.length]);
+  return ms.map((m, i) => {
+    const tmps = byStyle[ps[i]];
+    const tmp = tmps[Math.floor(Math.random() * tmps.length)];
+    const kw = m.keywords.indirect[Math.floor(Math.random() * m.keywords.indirect.length)];
+    return tmp.text.replace('{keyword}', kw);
+  });
+}
+
+function isHotFood(name) {
+  return /찌개|탕|국|라멘|우동|짬뽕|매운|뜨|끓|전골|스키야키|훠궈|마라/.test(name);
+}
+const menus = [
+{name:'김치찌개',emoji:'🥘',keywords:{direct:['김치','돼지고기','두부'],indirect:['빨간 소울푸드','매콤한 집밥 향','어머니의 뚝배기']}},
+{name:'된장찌개',emoji:'🫕',keywords:{direct:['된장','두부','호박'],indirect:['구수한 발효 향','시골 아침 냄새','콩의 깊은 맛']}},
+{name:'순두부찌개',emoji:'🥘',keywords:{direct:['순두부','계란','빨간 국물'],indirect:['부드럽고 뜨거운 것','보글보글 소리','흰 것 속 매움']}},
+{name:'부대찌개',emoji:'🍲',keywords:{direct:['소시지','라면사리','햄'],indirect:['동서양의 만남','군부대의 유산','끓일수록 깊은 맛']}},
+{name:'육개장',emoji:'🌶️',keywords:{direct:['소고기','고사리','대파'],indirect:['얼큰한 빨간 물결','땀 나는 매운 국물','기운 솟는 한 그릇']}},
+{name:'순댓국밥',emoji:'🍲',keywords:{direct:['순대','내장','국밥'],indirect:['시장 골목의 따뜻함','소금 한 꼬집의 마법','뜨끈한 한 사발']}},
+{name:'설렁탕',emoji:'🥩',keywords:{direct:['사골','하얀 국물','소금'],indirect:['24시간의 기다림','하얗게 우려낸 정성','밥 말아 먹는 행복']}},
+{name:'비빔밥',emoji:'🍚',keywords:{direct:['고추장','나물','계란'],indirect:['섞을수록 맛있는','오색의 조화','한 그릇에 담긴 무지개']}},
+{name:'김치볶음밥',emoji:'🍳',keywords:{direct:['발효채소','볶음밥','계란프라이'],indirect:['빨간 볶음의 고소함','냉장고 속 빨간 재료의 변신','위에 올린 노란 왕관']}},
+{name:'돈까스',emoji:'🥩',keywords:{direct:['돈까스','소스','양배추'],indirect:['두툼한 바삭함','소스 뿌린 튀김의 왕','양배추와 함께하는 커틀릿']}},
+{name:'김밥',emoji:'🍙',keywords:{direct:['김','밥','단무지'],indirect:['돌돌 말린 한 줄','소풍의 추억','한 입에 모든 재료']}},
+{name:'라면',emoji:'🍜',keywords:{direct:['라면','계란','파'],indirect:['새벽 허기의 구원자','3분의 마법','빨간 국물의 위로']}},
+{name:'만둣국',emoji:'🥟',keywords:{direct:['만두','떡','계란'],indirect:['빚어 만든 정성','맑은 국물 속 보물','김이 모락모락']}},
+{name:'떡국',emoji:'🍲',keywords:{direct:['가래떡','계란','맑은 국물'],indirect:['새해 첫 한 그릇','동그란 떡의 잔치','한 살 더 먹는 맛']}},
+{name:'뚝배기불고기',emoji:'🥘',keywords:{direct:['소고기','당면','뚝배기'],indirect:['보글보글 달콤한 냄비','간장 양념의 깊이','뚝배기째 나오는 행복']}},
+{name:'물냉면',emoji:'❄️',keywords:{direct:['냉면','육수','겨자'],indirect:['얼음 아래 숨은 면','차가운 육수의 쾌감','겨자와 식초의 마법']}},
+{name:'비빔냉면',emoji:'🌶️',keywords:{direct:['냉면','비빔장','계란'],indirect:['매콤한 차가운 면','비벼서 더 맛있는','빨간 양념의 차가운 쾌감']}},
+{name:'회냉면',emoji:'🐟',keywords:{direct:['회','냉면','매콤양념'],indirect:['바다와 얼음의 만남','신선함 위의 매콤함','회와 면의 듀엣']}},
+{name:'칼국수',emoji:'🍜',keywords:{direct:['칼국수','바지락','밀가루'],indirect:['손칼로 썬 정성','구수한 조개 육수','뜨끈한 밀가루 면']}},
+{name:'수제비',emoji:'🫓',keywords:{direct:['밀가루 반죽','감자','호박'],indirect:['손으로 뜯은 정성','울퉁불퉁한 매력','비 오는 날의 친구']}},
+{name:'쌈밥',emoji:'🥬',keywords:{direct:['상추','쌈장','밥'],indirect:['초록 잎에 싸는 행복','한 쌈 가득 건강','채소로 감싸는 한 끼']}},
+{name:'떡볶이',emoji:'🧡',keywords:{direct:['떡','고추장','어묵'],indirect:['학교 앞 추억','빨간 소스의 달콤함','분식의 영원한 왕']}},
+{name:'고등어구이',emoji:'🐟',keywords:{direct:['고등어','소금','구이'],indirect:['등 푸른 생선의 정석','노릇한 껍질의 유혹','소금만으로 완성']}},
+{name:'고등어조림',emoji:'🐟',keywords:{direct:['고등어','무','조림'],indirect:['등 푸른 생선의 변신','매콤한 밥반찬','무와 함께 졸인 바다']}},
+{name:'생선구이정식',emoji:'🐟',keywords:{direct:['생선','반찬','정식'],indirect:['담백한 바다 한 상','격식 있는 생선 요리','정갈한 한 끼']}},
+{name:'짬뽕',emoji:'🌶️',keywords:{direct:['해물','홍합','빨간 국물'],indirect:['매운 바다의 면','얼큰한 중화 국물','빨간 불의 면']}},
+{name:'짜장면',emoji:'🍜',keywords:{direct:['춘장','양파','면'],indirect:['검은 소스의 달콤함','중국집의 국민 메뉴','검은색 면 요리']}},
+{name:'볶음밥',emoji:'🍳',keywords:{direct:['볶음밥','계란','새우'],indirect:['불 위에서 춤추는 밥','중화 불맛의 정석','웍 위의 볶은 곡식']}},
+{name:'짬뽕밥',emoji:'🌶️',keywords:{direct:['매운국물','밥','해물'],indirect:['면 대신 밥으로','매콤한 국물에 말아 먹는','매운 해물 국물의 변주']}},
+{name:'마라탕',emoji:'🌶️',keywords:{direct:['마라','사천','향신료'],indirect:['얼얼한 중독성','골라 담는 매운 국물','혀가 마비되는 쾌감']}},
+{name:'햄버거',emoji:'🍔',keywords:{direct:['패티','번','감자튀김'],indirect:['두 빵 사이의 세계','한 손에 잡히는 미국','육즙 터지는 한 입']}},
+{name:'샐러드',emoji:'🥗',keywords:{direct:['채소','드레싱','건강식'],indirect:['초록빛 가벼운 한 끼','드레싱이 완성하는 맛','접시 위의 정원']}},
+{name:'오므라이스',emoji:'🥚',keywords:{direct:['계란','케첩','볶음밥'],indirect:['노란 이불 속 빨간 밥','부드러운 감싸기','케첩으로 그린 하트']}},
+{name:'알밥',emoji:'🥚',keywords:{direct:['날치알','참기름','밥'],indirect:['톡톡 터지는 보석 밥','바다의 작은 알갱이','비벼 먹는 보물']}},
+{name:'텐동',emoji:'🍤',keywords:{direct:['튀김','새우','덮밥'],indirect:['바삭한 튀김 탑','밥 위의 튀김 왕국','텐츠유에 적신 바삭함']}},
+{name:'피자',emoji:'🍕',keywords:{direct:['치즈','도우','토마토'],indirect:['둥근 반죽 위의 잔치','늘어나는 치즈의 유혹','오븐에서 갓 나온 원판']}},
+{name:'크림파스타',emoji:'🍝',keywords:{direct:['크림소스','면','치즈'],indirect:['부드러운 하얀 면','고소한 크림의 강','입에 감기는 부드러움']}},
+{name:'토마토파스타',emoji:'🍝',keywords:{direct:['토마토','면','바질'],indirect:['빨간 이탈리아의 맛','산미와 감칠맛의 조화','태양빛 소스의 면']}},
+{name:'카레',emoji:'🍛',keywords:{direct:['향신료','감자','당근'],indirect:['노란 향신료의 매력','걸쭉한 이국의 맛','향이 춤추는 접시']}},
+{name:'회덮밥',emoji:'🐟',keywords:{direct:['생선회','초고추장','채소'],indirect:['신선한 바다 위의 밥','날것의 상쾌함','바다와 들판의 조합']}},
+{name:'Subway샌드위치',emoji:'🥪',keywords:{direct:['빵','야채','소스'],indirect:['내 맘대로 고르는 재미','길쭉한 빵의 세계','건강한 패스트푸드']}},
+{name:'우동',emoji:'🍲',keywords:{direct:['굵은 면','가쓰오부시','다시'],indirect:['굵고 쫄깃한 면','맑은 일본 국물','따뜻한 다시의 감칠맛']}},
+{name:'콩나물국밥',emoji:'🌱',keywords:{direct:['콩나물','전주','뚝배기'],indirect:['아삭한 해장','전라도의 아침','숙취 뒤 구원자']}},
+{name:'제육볶음',emoji:'🐷',keywords:{direct:['돼지고기','고추장','양파'],indirect:['매콤달콤 밥도둑','빨간 양념의 유혹','밥 한 그릇 순삭']}},
+{name:'오삼불고기',emoji:'🦑',keywords:{direct:['오징어','삼겹살','매운양념'],indirect:['바다와 육지의 매운 만남','쫄깃함과 기름짐의 하모니','불맛 나는 듀오']}},
+{name:'콩국수',emoji:'🥛',keywords:{direct:['콩','소면','하얀 국물'],indirect:['고소한 하얀 여름','콩이 녹아든 시원함','하얀 보양식']}},
+{name:'막국수',emoji:'🍜',keywords:{direct:['메밀','동치미','겨자'],indirect:['강원도의 시원한 한 그릇','새콤달콤 여름 별미','메밀향 가득한 면']}},
+{name:'밀면',emoji:'🍜',keywords:{direct:['밀면','부산','고구마 전분'],indirect:['남쪽 항구의 시원함','쫀득한 차가운 면','부산 사람의 자부심']}},
+{name:'스시',emoji:'🍣',keywords:{direct:['생선회','식초밥','와사비'],indirect:['한 입의 바다','장인이 쥔 작품','신선함의 예술']}},
+{name:'떡만둣국',emoji:'🥟',keywords:{direct:['떡','만두','계란'],indirect:['새해 첫 한 그릇','동그란 떡의 잔치','피 속에 숨은 고기']}},
+{name:'갈비탕',emoji:'🍖',keywords:{direct:['소갈비','사골','맑은 국물'],indirect:['뼈에서 우러난 정성','맑고 깊은 보양','고기 덩어리의 위엄']}},
+{name:'샤브샤브',emoji:'🫕',keywords:{direct:['얇은 고기','채소','육수'],indirect:['살짝 담갔다 건지는 맛','맑은 국물의 정수','함께 끓이는 행복']}},
+{name:'뼈해장국',emoji:'🦴',keywords:{direct:['선지','우거지','뼈'],indirect:['뜨끈한 해장','다음날 아침의 구세주','진한 뼈의 위로']}},
+{name:'돌솥비빔밥',emoji:'🔥',keywords:{direct:['돌솥','누룽지','나물'],indirect:['뜨거운 돌의 마법','바삭한 바닥의 보너스','지글지글 소리']}},
+{name:'찜닭',emoji:'🍗',keywords:{direct:['닭','간장','당면'],indirect:['간장에 졸인 달콤함','당면 건지는 재미','경북의 자부심']}},
+{name:'김치말이국수',emoji:'🍜',keywords:{direct:['발효채소','국수','얼음'],indirect:['새콤한 발효 국물의 면','여름 입맛 살리기','시원한 빨간 국물']}},
+{name:'비빔국수',emoji:'🌶️',keywords:{direct:['소면','고추장','오이'],indirect:['매콤새콤 여름 별미','비벼 먹는 시원함','입맛 없을 때 딱']}},
+{name:'잔치국수',emoji:'🍝',keywords:{direct:['소면','멸치육수','호박'],indirect:['잔칫날의 국수','가늘고 긴 인생','따뜻한 축하 한 그릇']}},
+{name:'본죽',emoji:'🥣',keywords:{direct:['죽','전복','참기름'],indirect:['부드러운 아침 한 끼','속 편한 보양식','한 숟갈의 위로']}},
+{name:'롯데리아',emoji:'🍔',keywords:{direct:['달콤한 패티 버거','감자튀김','콜라'],indirect:['한국식 패스트푸드','한국형 버거의 유혹','달콤한 고기와 빵의 만남']}},
+{name:'맥도날드',emoji:'🍔',keywords:{direct:['더블패티 버거','치킨너겟','감자튀김'],indirect:['글로벌 버거의 유혹','전 세계 공통 맛','세트 메뉴의 정석']}},
+{name:'엽기떡볶이',emoji:'🔥',keywords:{direct:['매운떡볶이','빨간소스','중독성'],indirect:['화끈한 맛','불의 시련','붉은 유혹']}},
+{name:'KFC',emoji:'🍗',keywords:{direct:['바삭한 치킨','비스킷','콜슬로'],indirect:['비밀 양념의 바삭함','바삭한 튀김옷의 유혹','한 통 가득한 행복']}},
+{name:'맘스터치',emoji:'🍔',keywords:{direct:['두툼한 치킨버거','치킨','감자튀김'],indirect:['가성비 버거의 왕','두툼한 치킨 패티','학생들의 영혼 맛집']}},
+{name:'낙지덮밥',emoji:'🐙',keywords:{direct:['낙지','매콤양념','덮밥'],indirect:['바다 쫄깃이의 매운 유혹','8개 다리 위의 밥','매콤한 바다 덮밥']}},
+{name:'오징어덮밥',emoji:'🦑',keywords:{direct:['오징어','매콤소스','밥'],indirect:['쫄깃한 바다의 덮밥','매콤달콤 오징어 한 그릇','바다에서 온 밥도둑']}},
+{name:'한솥도시락',emoji:'🍱',keywords:{direct:['도시락','반찬','밥'],indirect:['뚜껑 여는 설렘','가성비 한 끼','따뜻한 도시락의 정석']}},
+{name:'편의점도시락',emoji:'🍱',keywords:{direct:['편의점','도시락','전자레인지'],indirect:['3분 돌리면 완성','간편한 한 끼','삼각김밥의 친구']}},
+{name:'쌀국수',emoji:'🍜',keywords:{direct:['베트남','고수','쌀면'],indirect:['동남아의 뜨거운 아침','이국적인 허브 향','투명한 면의 깊은 국물']}},
+{name:'팟타이',emoji:'🥜',keywords:{direct:['태국','땅콩','볶음면'],indirect:['새콤달콤 동남아 면','라임 짜서 먹는 볶음','땅콩이 뿌려진 이국']}},
+{name:'탄탄면',emoji:'🍜',keywords:{direct:['땅콩소스','면','고추기름'],indirect:['고소하고 매콤한 중화 면','크리미한 매운 국물','한 번 먹으면 중독']}},
+{name:'볶음우동',emoji:'🍝',keywords:{direct:['우동면','간장','채소'],indirect:['굵은 면의 볶음 축제','간장 향 가득한 철판','쫄깃한 볶음의 매력']}},
+{name:'수육정식',emoji:'🥩',keywords:{direct:['수육','새우젓','쌈'],indirect:['보들보들 삶은 고기','젓갈과의 완벽한 궁합','한 쌈 가득 행복']}},
+{name:'치즈돈까스',emoji:'🧀',keywords:{direct:['돈까스','치즈','소스'],indirect:['바삭함 속 쭉 늘어나는 고소함','고소함 폭발 커틀릿','한 입에 두 가지 행복']}},
+{name:'참치김치찌개',emoji:'🐟',keywords:{direct:['캔 생선','발효채소','두부'],indirect:['캔 하나의 기적','발효와 바다의 환상 듀오','간편하지만 깊은 맛']}},
+{name:'차돌된장찌개',emoji:'🥩',keywords:{direct:['차돌박이','된장','뚝배기'],indirect:['고기 위의 구수함','얇은 고기와 깊은 맛','업그레이드된 전통']}},
+{name:'해물순두부찌개',emoji:'🦐',keywords:{direct:['해물','순두부','매콤'],indirect:['바다와 콩의 만남','부드러움 속 매움','보글보글 바다 향']}},
+{name:'일본카레',emoji:'🍛',keywords:{direct:['향신료소스','밥','돈까스'],indirect:['달콤한 동양식 걸쭉 소스','걸쭉한 갈색 소스','노란 소스와 밥의 정석']}},
+{name:'왕돈까스',emoji:'🥩',keywords:{direct:['큰 돈까스','소스','밥'],indirect:['얼굴만 한 커틀릿','사이즈로 승부하는','푸짐함의 끝판왕']}},
+{name:'돈까스카레',emoji:'🍛',keywords:{direct:['돈까스','걸쭉한소스','밥'],indirect:['바삭함과 걸쭉함의 만남','바삭함 위에 걸쭉한 폭포','두 메뉴의 합체']}},
+{name:'치킨마요덮밥',emoji:'🐔',keywords:{direct:['치킨','마요네즈','덮밥'],indirect:['바삭함 위에 하얀 소스','가성비 한 그릇','자취생의 영혼 메뉴']}},
+{name:'불고기덮밥',emoji:'🥩',keywords:{direct:['불고기','양파','밥'],indirect:['달콤한 고기의 밥 위 착지','간장 양념의 따뜻함','한 그릇 뚝딱']}},
+{name:'냉모밀',emoji:'🍝',keywords:{direct:['메밀면','쯔유','무'],indirect:['차갑게 즐기는 일본 면','찍어 먹는 담백함','갈색 면의 시원한 매력']}},
+{name:'메밀소바',emoji:'🍝',keywords:{direct:['메밀','쯔유','와사비'],indirect:['갈색 면의 담백함','차갑게 즐기는 면','찍어 먹는 일본 면']}},
+{name:'차돌짬뽕',emoji:'🌶️',keywords:{direct:['얇은 고기','매운면','해물'],indirect:['고기 올린 매운 바다 면','매운 면의 럭셔리 버전','얇은 고기의 고소한 매움']}},
+{name:'쟁반짜장',emoji:'🍜',keywords:{direct:['짜장','큰 쟁반','해물'],indirect:['넓은 판 위의 검은 면','나눠 먹는 중화요리','쟁반째 나오는 호쾌함']}},
+{name:'마파두부',emoji:'🧈',keywords:{direct:['두부','고추기름','산초'],indirect:['얼얼한 사천의 맛','부드러움 속 화끈함','혀가 얼얼해지는']}},
+{name:'유부초밥',emoji:'🍣',keywords:{direct:['유부','초밥','식초'],indirect:['달콤한 주머니 밥','한 입에 쏙 들어가는','도시락의 단골 손님']}},
+{name:'연어덮밥',emoji:'🍣',keywords:{direct:['연어','회','간장'],indirect:['오렌지빛 바다의 선물','신선한 바다의 향연','입에서 녹는 생선']}},
+{name:'닭갈비',emoji:'🍗',keywords:{direct:['닭','고추장','철판'],indirect:['춘천의 매콤함','철판 위의 축제','볶아 먹는 추억']}},
+{name:'까르보나라',emoji:'🥓',keywords:{direct:['베이컨','크림','계란'],indirect:['고소한 크림 파스타','베이컨의 짠맛과 크림','노른자로 완성한 면']}},
+{name:'카레돈까스',emoji:'🍛',keywords:{direct:['걸쭉한소스','돈까스','밥'],indirect:['걸쭉한 바다의 바삭한 섬','두 메뉴 동시에 즐기기','걸쭉함과 바삭함의 조합']}},
+{name:'비빔만두',emoji:'🥟',keywords:{direct:['만두','비빔소스','채소'],indirect:['매콤하게 비벼 먹는 만두','분식의 숨은 고수','소스에 버무린 한 입']}},
+{name:'샐러디',emoji:'🥗',keywords:{direct:['샐러드','곡물','드레싱'],indirect:['건강한 한 끼 식사','초록빛 가득한 그릇','맛있는 다이어트']}},
+{name:'감자탕',emoji:'🥔',keywords:{direct:['등뼈','감자','깻잎'],indirect:['뼈 속의 보물','푹 고은 진한 국물','야식의 황제']}},
+{name:'포케',emoji:'🐟',keywords:{direct:['참치','아보카도','하와이'],indirect:['하와이에서 온 그릇','큐브로 썬 바다','열대 섬의 건강식']}},
+{name:'청국장',emoji:'🫘',keywords:{direct:['청국장','콩','두부'],indirect:['냄새는 강하지만','발효의 극한','호불호가 갈리는 매력']}},
+{name:'삼계탕',emoji:'🐔',keywords:{direct:['닭','인삼','대추'],indirect:['여름날의 보양','뜨거운 것으로 이기는 법','한 마리 통째로']}},
+{name:'타코벨타코',emoji:'🌮',keywords:{direct:['타코','살사','치즈'],indirect:['멕시코의 바삭한 한 입','매콤한 이국 간식','접어 먹는 파티']}},
+{name:'닭개장',emoji:'🌶️',keywords:{direct:['닭','대파','매운 국물'],indirect:['닭으로 만든 육개장','얼큰한 닭의 변신','기운 솟는 매운 국물']}},
+{name:'닭도리탕',emoji:'🐔',keywords:{direct:['닭','감자','매운양념'],indirect:['매콤한 냄비 요리','온 가족의 한 냄비','감자와 닭의 동반자']}},
+{name:'라자냐',emoji:'🧱',keywords:{direct:['라자냐','미트소스','치즈'],indirect:['층층이 쌓은 이탈리아','치즈와 고기의 겹겹이','오븐 속 건축물']}},
+{name:'매운짬뽕',emoji:'🔥',keywords:{direct:['짬뽕','고추','해물'],indirect:['더 매운 바다의 면','매운맛 도전장','불타는 중화 국물']}},
+{name:'해물짬뽕',emoji:'🐙',keywords:{direct:['해물','매운면','매운국물'],indirect:['바다 전부를 넣은 면','얼큰한 바다 천국','빨간 파도의 면']}},
+{name:'물회',emoji:'🐟',keywords:{direct:['회','얼음','초고추장'],indirect:['얼음 위의 신선한 바다','여름 바다의 시원함','새콤매콤 차가운 회']}},
+{name:'꼬막비빔밥',emoji:'🐚',keywords:{direct:['꼬막','비빔밥','참기름'],indirect:['조개살 가득한 비빔','벌교의 자부심','쫄깃한 바다의 밥']}},
+{name:'베이컨볶음밥',emoji:'🥓',keywords:{direct:['베이컨','볶음밥','계란'],indirect:['짭짤한 고기의 볶음','서양식 볶음밥','기름진 고소함']}},
+{name:'갈치조림',emoji:'🐟',keywords:{direct:['갈치','무','간장'],indirect:['은빛 생선의 매콤한 변신','제주 바다의 맛','밥반찬의 끝판왕']}},
+{name:'라멘',emoji:'🍜',keywords:{direct:['돈코츠','차슈','면'],indirect:['진한 뼈 국물의 면','일본 면 문화의 정수','하얀 국물의 깊이']}},
+{name:'찐만두',emoji:'🥟',keywords:{direct:['만두','김','간장'],indirect:['김이 모락모락 피어오르는','속이 꽉 찬 한 입','찜통 속의 보물']}},
+{name:'딤섬',emoji:'🥟',keywords:{direct:['딤섬','대나무 찜통','소스'],indirect:['대나무 속 한입 요리','김이 솔솔 찜통','작고 정교한 한입']}},
+{name:'쉑쉑버거',emoji:'🍔',keywords:{direct:['프리미엄 버거','감자튀김','밀크쉐이크'],indirect:['뉴욕에서 온 버거','프리미엄 패스트푸드','줄 서서 먹는 맛']}},
+{name:'봉구스밥버거',emoji:'🍙',keywords:{direct:['밥버거','김','속재료'],indirect:['밥으로 만든 버거','한 손에 잡히는 밥','김으로 감싼 한 끼']}},
+{name:'편의점컵라면',emoji:'🍜',keywords:{direct:['컵라면','뜨거운 물','편의점'],indirect:['3분의 간편함','뜨거운 물만 있으면 되는','야식의 기본']}},
+{name:'편의점삼각김밥',emoji:'🍙',keywords:{direct:['삼각김밥','김','참치'],indirect:['삼각형의 간편함','뜯어 먹는 한 입','천원의 행복']}},
+{name:'잡채밥',emoji:'🍝',keywords:{direct:['당면','간장','참기름'],indirect:['투명한 면의 고소함','명절 반찬의 밥 위','달콤짭짤 고소한 면']}},
+{name:'고추잡채',emoji:'🌶️',keywords:{direct:['고추','돼지고기','잡채'],indirect:['매콤한 고기 볶음','채소와 고기의 하모니','중화풍 매운 볶음']}},
+{name:'울면',emoji:'🍜',keywords:{direct:['울면','전분','해물'],indirect:['걸쭉한 바다 면','녹말의 부드러운 감싸기','중국집의 숨은 메뉴']}},
+{name:'중국냉면',emoji:'🥒',keywords:{direct:['냉면','겨자소스','중화'],indirect:['차갑게 즐기는 중화 면','겨자의 알싸한 쾌감','여름 중국집 별미']}},
+{name:'김치우동',emoji:'🍜',keywords:{direct:['발효채소','굵은면','국물'],indirect:['한일 퓨전의 맛','발효 채소와 굵은 면의 만남','매콤한 굵은 면']}},
+{name:'마라샹궈',emoji:'🔥',keywords:{direct:['마라','사천','향신료'],indirect:['얼얼하고 화끈한','향신료의 폭발','중독되는 매운 볶음']}},
+{name:'리조또',emoji:'🍚',keywords:{direct:['쌀','치즈','와인'],indirect:['크림에 졸인 이탈리아 쌀','부드러운 서양식 죽','치즈가 녹아든 쌀']}},
+{name:'동태찌개',emoji:'🐡',keywords:{direct:['동태','무','두부'],indirect:['바다에서 온 시원함','겨울 바다의 선물','생선 토막의 깊은 맛']}},
+{name:'훠궈',emoji:'🫕',keywords:{direct:['훠궈','두 가지 육수','채소'],indirect:['골라 넣는 중국 전골','빨간 국물과 하얀 국물','끓는 냄비의 파티']}},
+{name:'알탕',emoji:'🥚',keywords:{direct:['명란','생선알','뚝배기'],indirect:['톡톡 터지는 식감','바다의 보석들','매콤한 알의 잔치']}},
+{name:'두부전골',emoji:'🫕',keywords:{direct:['두부','버섯','전골'],indirect:['부드러운 콩의 잔치','뜨끈한 전골의 행복','담백한 한 냄비']}},
+{name:'짬뽕순두부',emoji:'🥘',keywords:{direct:['짬뽕','순두부','해물'],indirect:['중화와 한식의 퓨전','매콤 부드러운 만남','두 메뉴의 환상 합체']}},
+{name:'떡튀순',emoji:'🧡',keywords:{direct:['떡볶이','튀김','순대'],indirect:['분식 삼총사','빨간 소스의 3종 세트','학교 앞 추억의 조합']}},
+{name:'보리밥',emoji:'🌾',keywords:{direct:['보리','나물','된장'],indirect:['시골 밥상의 건강함','거친 곡물의 매력','할머니 집 한 상']}},
+{name:'인도커리',emoji:'🍛',keywords:{direct:['난','커리','향신료'],indirect:['화덕에서 부풀린 빵과 함께','인도 정통 향신료','이국적 향의 깊은 맛']}},
+{name:'철판볶음',emoji:'🥘',keywords:{direct:['철판','볶음','소스'],indirect:['지글지글 철판 위의 향연','눈앞에서 볶아주는','소스가 춤추는 철판']}},
+{name:'쭈꾸미볶음',emoji:'🐙',keywords:{direct:['쭈꾸미','매운양념','볶음'],indirect:['봄철 바다의 매운 별미','작고 매운 바다 친구','알 가득한 매운 볶음']}},
+{name:'돈부리(일본식덮밥)',emoji:'🍛',keywords:{direct:['덮밥','간장소스','일본식'],indirect:['일본식 한 그릇의 정수','소스가 배인 밥','뚜껑 열면 펼쳐지는 세계']}},
+{name:'월남쌈',emoji:'🥬',keywords:{direct:['라이스페이퍼','새우','채소'],indirect:['투명한 쌀 종이 속','속이 보이는 롤','가벼운 베트남의 한 입']}},
+{name:'리코타치즈샐러드',emoji:'🥗',keywords:{direct:['리코타','채소','발사믹'],indirect:['부드러운 치즈의 샐러드','이탈리아 감성 한 접시','고급 브런치 느낌']}},
+{name:'베이글샌드위치',emoji:'🥯',keywords:{direct:['베이글','크림치즈','연어'],indirect:['동그란 빵의 샌드위치','뉴욕 아침의 정석','쫄깃한 빵 사이 크림']}},
+{name:'쫄면',emoji:'💛',keywords:{direct:['쫄면','오이','초고추장'],indirect:['쫄깃한 매콤새콤','두꺼운 면의 탄력','새콤달콤 여름 면']}},
+{name:'순대볶음',emoji:'🌭',keywords:{direct:['순대','떡','양배추'],indirect:['시장 골목의 인기 메뉴','매콤한 시장 골목 볶음','찰진 것과 쫀득한 것의 만남']}},
+{name:'낙곱새',emoji:'🐙',keywords:{direct:['낙지','곱창','새우'],indirect:['바다와 육지의 삼총사','매콤한 삼합','한 냄비에 다 담은 호화']}},
+{name:'낙지비빔밥',emoji:'🐙',keywords:{direct:['낙지','비빔밥','참기름'],indirect:['바다 쫄깃이의 비빔','매콤한 바다 비빔밥','쫄깃함이 올라간 비빔']}},
+{name:'오징어불고기',emoji:'🦑',keywords:{direct:['오징어','불고기양념','볶음'],indirect:['바다 쫄깃이의 달콤한 변신','간장 양념의 바다','매콤달콤 오징어']}},
+{name:'들깨칼국수',emoji:'🍜',keywords:{direct:['고소한 견과','손칼면','국물'],indirect:['고소함의 끝판왕','고소한 향 가득한 면','구수한 고소함의 면']}},
+{name:'들깨수제비',emoji:'🫓',keywords:{direct:['고소한 견과','반죽','감자'],indirect:['고소한 하얀 국물','고소함이 녹아든 반죽','울퉁불퉁한 고소함']}},
+{name:'바지락칼국수',emoji:'🐚',keywords:{direct:['바지락','손칼면','해물육수'],indirect:['조개가 열리는 순간','시원한 바다 국물 면','조개 향 가득한 면']}},
+{name:'즉석떡볶이',emoji:'🧡',keywords:{direct:['떡','라면','어묵'],indirect:['셀프로 끓이는 재미','즉석에서 보글보글','내가 끓이는 빨간 맛']}},
+{name:'닭곰탕',emoji:'🐔',keywords:{direct:['닭','맑은 국물','소금'],indirect:['맑고 깊은 닭 육수','담백한 보양식','몸보신의 정석']}},
+{name:'황태해장국',emoji:'🐟',keywords:{direct:['황태','콩나물','계란'],indirect:['바싹 말린 생선의 부활','해장의 정석','속 풀리는 맑은 국물']}},
+{name:'스타벅스샌드위치',emoji:'🥪',keywords:{direct:['빵','커피','브런치'],indirect:['커피향 가득한 한 끼','커피와 함께하는 간편식','카페에서 해결하는 점심']}},
+{name:'감자옹심이',emoji:'🥔',keywords:{direct:['감자반죽','맑은국물','들깨'],indirect:['강원도 산골의 정성','동글동글 귀여운 반죽','쫀득한 알맹이의 맑은 국물']}},
+{name:'열무비빔국수',emoji:'🌿',keywords:{direct:['열무','소면','비빔장'],indirect:['초록빛 여름의 상큼함','아삭한 채소와 면의 만남','새콤매콤 입맛 폭발']}},
+{name:'평양냉면',emoji:'❄️',keywords:{direct:['메밀면','육수','편육'],indirect:['담백한 북쪽의 한 그릇','맑고 깊은 차가운 면','싱거운 듯 깊은 맛']}},
+{name:'갈비덮밥',emoji:'🍖',keywords:{direct:['갈비','양념','밥'],indirect:['달콤짭짤 뼈 있는 고기의 밥','양념에 졸인 고기의 착지','한 그릇에 담긴 고깃집']}},
+{name:'닭갈비덮밥',emoji:'🍗',keywords:{direct:['닭','매운양념','밥'],indirect:['춘천에서 온 매콤한 한 그릇','매콤한 가금류의 밥 위 착지','철판 없이 즐기는 춘천 맛']}},
+{name:'버섯솥밥',emoji:'🍄',keywords:{direct:['버섯','솥밥','간장소스'],indirect:['숲속 향기 가득한 밥','뚜껑 열면 피어나는 향','자연이 지은 밥']}},
+{name:'곤드레나물비빔밥',emoji:'🌿',keywords:{direct:['곤드레','나물','참기름'],indirect:['강원도 산골의 향기','구수한 들판의 한 그릇','산에서 내려온 건강한 밥']}},
+{name:'해물솥밥',emoji:'🦐',keywords:{direct:['해물','솥밥','간장소스'],indirect:['바다를 담은 뚜껑 밥','뚜껑 아래 바다 향기','누룽지와 바다의 만남']}},
+{name:'한식부페',emoji:'🍽️',keywords:{direct:['반찬','뷔페','한식'],indirect:['골라 먹는 한 상 가득','끝없는 반찬의 행진','눈이 배보다 큰 날']}},
+{name:'충무김밥',emoji:'🍙',keywords:{direct:['꼬마김밥','오징어무침','깍두기'],indirect:['통영 바다의 한 입','반찬이 따로 노는 롤','작고 하얀 한 줄의 매력']}},
+{name:'게장정식',emoji:'🦀',keywords:{direct:['게','간장','정식'],indirect:['밥도둑의 정석 한 상','갑각류의 풀코스','밥 비벼 먹는 바다의 보물']}},
+{name:'간장게장',emoji:'🦀',keywords:{direct:['게','간장','참기름'],indirect:['밥도둑 1호','짭조름하게 절인 바다의 보석','비벼 먹으면 밥이 사라지는']}},
+{name:'양념게장',emoji:'🦀',keywords:{direct:['게','매운양념','참기름'],indirect:['매콤한 바다의 밥도둑','빨갛게 버무린 갑각류','매운 밥도둑의 유혹']}},
+{name:'스테이크덮밥',emoji:'🥩',keywords:{direct:['스테이크','소스','밥'],indirect:['구운 고기의 밥 위 등장','동서양의 접시 위 합체','육즙 가득한 한 그릇']}},
+{name:'막창덮밥',emoji:'🔥',keywords:{direct:['막창','소스','밥'],indirect:['불 위에서 구운 내장의 밥','쫀득한 내장의 한 그릇','소금구이 내장의 변신']}},
+{name:'대창덮밥',emoji:'🔥',keywords:{direct:['대창','소스','밥'],indirect:['기름진 내장의 고소한 밥','프리프리한 내장 한 그릇','곱씹는 맛의 한 그릇']}},
+{name:'사천짜장',emoji:'🌶️',keywords:{direct:['춘장','고추','해물'],indirect:['매콤한 검은 소스의 면','얼얼한 중화 면','검은색에 빨간 불꽃']}},
+{name:'김밥과라면',emoji:'🍜',keywords:{direct:['분식세트','빨간국물','단무지'],indirect:['돌돌 만 것과 빨간 국물의 콤보','분식집의 황금 조합','두 가지를 한 번에']}},
+{name:'묵사발',emoji:'🥒',keywords:{direct:['도토리묵','채소','육수'],indirect:['도토리에서 온 시원한 한 그릇','미끌미끌 시원한 여름 별미','탱글탱글 투명한 시원함']}},
+{name:'육회비빔밥',emoji:'🥩',keywords:{direct:['날고기','참기름','계란'],indirect:['날것의 붉은 보석 위의 밥','신선한 고소함의 한 그릇','참기름 향 가득한 생생함']}},
+];
+
+// ===== PRANK SYSTEM =====
+const pranks = [
+  {id:'fail_hunger',emoji:'💀',messages:['꽝! 오늘은 굶는날','메뉴 RNG 실패… 공복 유지 권장','오늘은 단식 챌린지 자동 시작됨']},
+  {id:'diet_mode',emoji:'💧',messages:['다이어트 타임… 물 한잔 추천','오늘 칼로리 절약 DAY (물 가능)','배고픔도 자기관리입니다..']},
+  {id:'meeting_cancel',emoji:'💼',messages:['오늘 점심은 회의입니다ㅠㅠ','갑작스러운 미팅 소환… 식사 취소','일정 충돌 발생 — 점심 자동 스킵']},
+  {id:'time_over',emoji:'⏰',messages:['메뉴 고민하다 점심시간 종료','메뉴선정에 실패하였습니다 time over','저도 결정장애가 왔어요']},
+];
+const PRANK_CHANCE = 0.10;
+function pickRandomPrank() {
+  const p = pranks[Math.floor(Math.random() * pranks.length)];
+  const msg = p.messages[Math.floor(Math.random() * p.messages.length)];
+  return { id: p.id, emoji: p.emoji, message: msg };
+}
+function shouldPrank() { return Math.random() < PRANK_CHANCE; }
+// ===== DECORATION SYSTEM =====
+function clearDecorations() {
+  document.getElementById('decorations').innerHTML = '';
+}
+
+function addDecorations(type) {
+  const container = document.getElementById('decorations');
+  container.innerHTML = '';
+  if (type === 'none') return;
+
+  const makers = {
+    hearts() {
+      for (let i = 0; i < 15; i++) {
+        const el = document.createElement('div');
+        el.className = 'deco-particle';
+        el.textContent = ['💖','✨','💕','⭐','🌸'][Math.floor(Math.random()*5)];
+        el.style.cssText = `left:${Math.random()*100}%;font-size:${12+Math.random()*16}px;animation:floatUp ${8+Math.random()*12}s linear infinite;animation-delay:${Math.random()*10}s;`;
+        container.appendChild(el);
+      }
+    },
+    sparkles() {
+      for (let i = 0; i < 20; i++) {
+        const el = document.createElement('div');
+        el.className = 'deco-particle';
+        el.textContent = ['✦','✧','⚔','💎','🗡'][Math.floor(Math.random()*5)];
+        el.style.cssText = `left:${Math.random()*100}%;top:${Math.random()*100}%;font-size:${10+Math.random()*14}px;animation:twinkle ${2+Math.random()*3}s ease-in-out infinite;animation-delay:${Math.random()*3}s;`;
+        container.appendChild(el);
+      }
+    },
+    stars() {
+      for (let i = 0; i < 18; i++) {
+        const el = document.createElement('div');
+        el.className = 'deco-particle';
+        el.textContent = ['⭐','✨','💫','🌟','🦋'][Math.floor(Math.random()*5)];
+        el.style.cssText = `left:${Math.random()*100}%;font-size:${10+Math.random()*18}px;animation:floatUp ${10+Math.random()*15}s linear infinite;animation-delay:${Math.random()*12}s;`;
+        container.appendChild(el);
+      }
+    },
+    starfield() {
+      for (let i = 0; i < 40; i++) {
+        const el = document.createElement('div');
+        el.className = 'deco-particle';
+        el.style.cssText = `left:${Math.random()*100}%;top:${Math.random()*100}%;width:${2+Math.random()*3}px;height:${2+Math.random()*3}px;background:#fff;border-radius:50%;animation:twinkle ${1+Math.random()*4}s ease-in-out infinite;animation-delay:${Math.random()*4}s;`;
+        container.appendChild(el);
+      }
+    },
+    mysticOrbs() {
+      for (let i = 0; i < 15; i++) {
+        const el = document.createElement('div');
+        el.className = 'deco-particle';
+        el.textContent = ['🔮','✨','⭐','🌙','💜'][Math.floor(Math.random()*5)];
+        el.style.cssText = `left:${Math.random()*100}%;top:${Math.random()*100}%;font-size:${12+Math.random()*16}px;animation:twinkle ${2+Math.random()*4}s ease-in-out infinite;animation-delay:${Math.random()*4}s;`;
+        container.appendChild(el);
+      }
+    },
+    ghosts() {
+      for (let i = 0; i < 10; i++) {
+        const el = document.createElement('div');
+        el.className = 'deco-particle';
+        el.textContent = ['👻','💀','🕯','🦇','👁'][Math.floor(Math.random()*5)];
+        el.style.cssText = `left:${Math.random()*100}%;font-size:${14+Math.random()*18}px;animation:floatUp ${12+Math.random()*15}s linear infinite;animation-delay:${Math.random()*12}s;opacity:0.35;`;
+        container.appendChild(el);
+      }
+    },
+    neonGrid() {
+      for (let i = 0; i < 25; i++) {
+        const el = document.createElement('div');
+        el.className = 'deco-particle';
+        const colors = ['#ff00ff','#00ffff','#ffff00','#ff4444'];
+        el.style.cssText = `left:${Math.random()*100}%;top:${Math.random()*100}%;width:${2+Math.random()*4}px;height:${2+Math.random()*4}px;background:${colors[Math.floor(Math.random()*4)]};box-shadow:0 0 6px currentColor;animation:twinkle ${1+Math.random()*2}s ease-in-out infinite;animation-delay:${Math.random()*2}s;`;
+        container.appendChild(el);
+      }
+    },
+    leaves() {
+      for (let i = 0; i < 12; i++) {
+        const el = document.createElement('div');
+        el.className = 'deco-particle';
+        el.textContent = ['🍂','🍃','🌿','🌾','🌻'][Math.floor(Math.random()*5)];
+        el.style.cssText = `left:${Math.random()*100}%;font-size:${12+Math.random()*14}px;animation:floatUp ${12+Math.random()*18}s linear infinite;animation-delay:${Math.random()*15}s;`;
+        container.appendChild(el);
+      }
+    },
+    flames() {
+      for (let i = 0; i < 14; i++) {
+        const el = document.createElement('div');
+        el.className = 'deco-particle';
+        el.textContent = ['🔥','💥','⚡','💢','✨'][Math.floor(Math.random()*5)];
+        el.style.cssText = `left:${Math.random()*100}%;font-size:${12+Math.random()*16}px;animation:floatUp ${6+Math.random()*8}s linear infinite;animation-delay:${Math.random()*6}s;`;
+        container.appendChild(el);
+      }
+    },
+    dancheong() {
+      for (let i = 0; i < 12; i++) {
+        const el = document.createElement('div');
+        el.className = 'deco-particle';
+        el.textContent = ['🏮','🎎','🌸','🎐','☯'][Math.floor(Math.random()*5)];
+        el.style.cssText = `left:${Math.random()*100}%;top:${Math.random()*100}%;font-size:${12+Math.random()*14}px;animation:twinkle ${3+Math.random()*5}s ease-in-out infinite;animation-delay:${Math.random()*5}s;`;
+        container.appendChild(el);
+      }
+    },
+    matrix() {
+      for (let i = 0; i < 30; i++) {
+        const el = document.createElement('div');
+        el.className = 'deco-particle';
+        el.textContent = String.fromCharCode(0x30A0 + Math.floor(Math.random()*96));
+        el.style.cssText = `left:${Math.random()*100}%;color:#00ff77;font-family:monospace;font-size:${10+Math.random()*12}px;animation:matrixFall ${4+Math.random()*8}s linear infinite;animation-delay:${Math.random()*8}s;`;
+        container.appendChild(el);
+      }
+    },
+  };
+  if (makers[type]) makers[type]();
+}
+
+// ===== APPLY MOOD =====
+function applyMood(themeName) {
+  const moodKey = moodMap[themeName] || 'cute';
+  const m = moodDefs[moodKey];
+  const r = document.documentElement.style;
+  r.setProperty('--bg', m.bg);
+  r.setProperty('--bg2', m.bg2);
+  for (let i = 0; i < 4; i++) {
+    r.setProperty(`--box${i+1}`, m.box[i][0]);
+    r.setProperty(`--box${i+1}-dark`, m.box[i][1]);
+    r.setProperty(`--box${i+1}-light`, m.box[i][2]);
+  }
+  r.setProperty('--pixel-border', m.border);
+  r.setProperty('--text', m.text);
+  r.setProperty('--title-color', m.titleColor);
+  r.setProperty('--bubble-bg', m.bubbleBg);
+  r.setProperty('--bubble-text', m.bubbleText);
+  r.setProperty('--bubble-border', m.bubbleBorder);
+  r.setProperty('--btn-bg', m.btnBg);
+  r.setProperty('--btn-text', m.btnText);
+  addDecorations(m.deco);
+}
+
+// ===== PARTICLES =====
+function spawnParticles(box) {
+  const colors = ['#ff6b6b','#4ecdc4','#ffe66d','#a78bfa','#ff9ff3','#54a0ff','#5f27cd'];
+  for (let i = 0; i < 14; i++) {
+    const p = document.createElement('div');
+    p.className = 'particle';
+    const angle = (Math.PI*2/14)*i;
+    const dist = 50+Math.random()*50;
+    p.style.cssText = `--px:${Math.cos(angle)*dist}px;--py:${Math.sin(angle)*dist}px;left:50%;top:40%;background:${colors[Math.floor(Math.random()*colors.length)]};animation:particleFly 0.6s ease-out forwards;`;
+    box.appendChild(p);
+    setTimeout(() => p.remove(), 700);
+  }
+}
+
+// ===== GAME =====
+function initGame() {
+  const boxesEl = document.getElementById('boxes');
+  boxesEl.innerHTML = '';
+
+  const theme = pickRandomTheme();
+  const selectedMenus = pickRandomMenus(4);
+  const labels = generateLabels(selectedMenus, theme);
+
+  applyMood(theme.name);
+
+  // 장난 이벤트 체크
+  const isPrank = shouldPrank();
+  const prankIdx = isPrank ? Math.floor(Math.random() * 4) : -1;
+  const prank = isPrank ? pickRandomPrank() : null;
+
+  selectedMenus.forEach((menu, i) => {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'box-wrapper';
+
+    const bubble = document.createElement('div');
+    bubble.className = 'speech-bubble';
+
+    const thisPrank = (i === prankIdx);
+    const prankHints = [
+      '...???', '뭔가 이상한 낌새가...', '열지 마세요',
+      '경고: 불길한 기운', '이건 좀 수상한데', '직감을 믿어볼까?',
+      '도박의 시간', '용기가 필요합니다', '열면 후회할 수도...',
+      '판도라의 상자?', '위험한 향기가...', '함정 냄새가 난다',
+      '이 상자는 좀 다르다', '운명의 갈림길', '모험가만 열 수 있음',
+      '호기심은 고양이를 죽인다', '경고등이 깜빡이는 중',
+    ];
+    bubble.textContent = thisPrank ? prankHints[Math.floor(Math.random() * prankHints.length)] : labels[i];
+
+    const hot = isHotFood(menu.name);
+    const steamHTML = hot ? '<div class="food-steam"><span></span><span></span><span></span></div>' : '';
+
+    const box = document.createElement('div');
+    box.className = 'box';
+
+    if (thisPrank) {
+      box.innerHTML = `
+        <div class="box-lid">
+          <div class="box-ribbon-h"></div>
+          <div class="box-bow"></div>
+        </div>
+        <div class="box-body">
+          <div class="box-ribbon-v"></div>
+          <div class="box-highlight h1"></div>
+          <div class="box-highlight h2"></div>
+        </div>
+        <div class="glow-burst"></div>
+        <div class="menu-result prank-result">
+          <div class="food-plate">
+            <span class="menu-emoji">${prank.emoji}</span>
+          </div>
+          <div class="menu-name">${prank.message}</div>
+        </div>`;
+    } else {
+      box.innerHTML = `
+        <div class="box-lid">
+          <div class="box-ribbon-h"></div>
+          <div class="box-bow"></div>
+        </div>
+        <div class="box-body">
+          <div class="box-ribbon-v"></div>
+          <div class="box-highlight h1"></div>
+          <div class="box-highlight h2"></div>
+        </div>
+        <div class="glow-burst"></div>
+        <div class="menu-result">
+          <div class="food-plate">
+            ${steamHTML}
+            <span class="menu-emoji">${menu.emoji}</span>
+          </div>
+          <div class="menu-name">${menu.name}</div>
+        </div>`;
+    }
+
+    box.addEventListener('click', () => {
+      if (box.classList.contains('opened')) return;
+      box.classList.add('opened');
+      box.querySelector('.glow-burst').classList.add('active');
+      spawnParticles(box);
+      if (thisPrank) document.body.classList.add('screen-shake');
+      setTimeout(() => {
+        box.querySelector('.menu-result').classList.add('show');
+        if (thisPrank) setTimeout(() => document.body.classList.remove('screen-shake'), 500);
+      }, 100);
+    });
+
+    wrapper.appendChild(bubble);
+    wrapper.appendChild(box);
+    boxesEl.appendChild(wrapper);
+
+    setTimeout(() => wrapper.classList.add('dropped'), 150*i+100);
+  });
+}
+
+document.getElementById('retryBtn').addEventListener('click', () => {
+  const boxesEl = document.getElementById('boxes');
+  boxesEl.style.opacity = '0';
+  boxesEl.style.transform = 'scale(0.95)';
+  boxesEl.style.transition = 'all 0.3s';
+  setTimeout(() => {
+    initGame();
+    boxesEl.style.opacity = '1';
+    boxesEl.style.transform = 'scale(1)';
+  }, 350);
+});
+
+initGame();
+</script>
+</body>
+</html>
