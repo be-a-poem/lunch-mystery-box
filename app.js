@@ -4,191 +4,142 @@ const { App } = require('@slack/bolt');
 const cron = require('node-cron');
 const { pickRandomMenus } = require('./data/menus');
 const { pickRandomTheme, generateLabels } = require('./data/themes');
-const { pickBoxImageSet, renderClosedBox, renderOpenedBox } = require('./data/boxDesigns');
+
+// ── 앱 초기화 ──
+
+const { LogLevel } = require('@slack/bolt');
 
 const app = new App({
   token: process.env.SLACK_BOT_TOKEN,
   signingSecret: process.env.SLACK_SIGNING_SECRET,
   socketMode: true,
   appToken: process.env.SLACK_APP_TOKEN,
+  logLevel: LogLevel.DEBUG,
 });
 
-// ── 진행 중인 미스터리 박스 세션 저장소 ──
-// key: `${channel}_${ts}` (메시지 고유 식별)
-// value: { menus: [...], labels: [...], theme: {...}, opened: { 0: { user, menu }, ... } }
+// ── 세션 ──
+
 const sessions = new Map();
+const NUM = ['1️⃣', '2️⃣', '3️⃣', '4️⃣'];
 
-/**
- * 오늘 날짜 키 생성 (KST 기준)
- */
-function getTodayKey() {
-  const now = new Date();
-  const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
-  return kst.toISOString().slice(0, 10);
-}
+// ── 블록 생성 ──
 
-/**
- * 미스터리 박스 메시지 블록 생성
- */
-function buildMysteryBoxBlocks(theme, labels, opened = {}, imageUrls = []) {
+function buildBlocks(labels, opened) {
   const blocks = [
     {
       type: 'header',
-      text: {
-        type: 'plain_text',
-        text: '🍱 오늘의 점심 미스터리 박스!',
-        emoji: true,
-      },
+      text: { type: 'plain_text', text: '🎁 오늘의 미스터리 박스!', emoji: true },
     },
-    {
-      type: 'context',
-      elements: [
-        {
-          type: 'mrkdwn',
-          text: `🏷️ 오늘의 테마: *${theme.name}*`,
-        },
-      ],
-    },
-    { type: 'divider' },
   ];
 
   for (let i = 0; i < 4; i++) {
     if (opened[i]) {
-      blocks.push(...renderOpenedBox(i, labels[i], opened[i].menu, imageUrls[i]));
+      blocks.push({
+        type: 'section',
+        text: { type: 'mrkdwn', text: `${NUM[i]} *${opened[i].name}*` },
+      });
     } else {
-      blocks.push(...renderClosedBox(i, labels[i], imageUrls[i]));
-    }
-
-    if (i < 3) {
-      blocks.push({ type: 'divider' });
-    }
-  }
-
-  const openedCount = Object.keys(opened).length;
-  if (openedCount === 4) {
-    blocks.push({ type: 'divider' });
-    blocks.push({
-      type: 'context',
-      elements: [
-        {
-          type: 'mrkdwn',
-          text: '✅ 모든 상자가 열렸습니다! 맛있는 점심 되세요~ 🍽️',
+      blocks.push({
+        type: 'section',
+        text: { type: 'mrkdwn', text: `${NUM[i]} "${labels[i]}"` },
+        accessory: {
+          type: 'button',
+          text: { type: 'plain_text', text: '열어보기', emoji: true },
+          action_id: `open_box_${i}`,
+          style: 'primary',
         },
-      ],
-    });
-  } else {
-    blocks.push({ type: 'divider' });
-    blocks.push({
-      type: 'context',
-      elements: [
-        {
-          type: 'mrkdwn',
-          text: `📊 ${openedCount}/4 상자 열림 — 상자를 눌러 오늘의 점심을 확인하세요!`,
-        },
-      ],
-    });
+      });
+    }
   }
 
   return blocks;
 }
 
-/**
- * 미스터리 박스 메시지를 채널에 전송
- */
-async function sendMysteryBox(channelId) {
-  const dateKey = getTodayKey();
-  const theme = pickRandomTheme(dateKey);
-  const menus = pickRandomMenus(4);
-  const imageUrls = pickBoxImageSet();
+// ── 전송 ──
 
-  // 각 메뉴의 간접 키워드 + 테마 템플릿으로 이름표 생성 (스타일 중복 방지)
-  const labels = generateLabels(menus, theme);
-
-  const blocks = buildMysteryBoxBlocks(theme, labels, {}, imageUrls);
-
-  const result = await app.client.chat.postMessage({
-    channel: channelId,
-    text: '🍱 오늘의 점심 미스터리 박스가 도착했습니다!',
-    blocks,
-  });
-
-  const sessionKey = `${channelId}_${result.ts}`;
-  sessions.set(sessionKey, {
-    menus,
-    labels,
-    theme,
-    imageUrls,
-    opened: {},
-  });
-
-  return result;
+function todayKey() {
+  return new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10);
 }
 
-// ── /lunch 슬래시 커맨드 ──
-app.command('/lunch', async ({ command, ack, respond }) => {
-  await ack();
-  await sendMysteryBox(command.channel_id);
+async function send(channel) {
+  const menus = pickRandomMenus(4);
+  const labels = generateLabels(menus, pickRandomTheme(todayKey()));
+  const opened = {};
+
+  const res = await app.client.chat.postMessage({
+    channel,
+    text: '오늘의 미스터리 박스!',
+    blocks: buildBlocks(labels, opened),
+  });
+
+  sessions.set(`${channel}_${res.ts}`, { menus, labels, opened });
+}
+
+// ── /lunch ──
+
+app.command('/lunch', async ({ command, ack }) => {
+  ack();
+  send(command.channel_id).catch(console.error);
 });
 
-// ── 상자 열기 버튼 핸들러 ──
-app.action(/^open_box_\d$/, async ({ action, body, ack, client }) => {
-  await ack();
+// ── 상자 열기 ──
 
-  const boxIndex = parseInt(action.action_id.replace('open_box_', ''), 10);
+app.action(/^open_box_\d$/, async ({ action, body, ack, client }) => {
+  ack();
+
+  const idx = Number(action.action_id.at(-1));
   const channel = body.channel.id;
   const ts = body.message.ts;
-  const sessionKey = `${channel}_${ts}`;
-  const session = sessions.get(sessionKey);
+  const session = sessions.get(`${channel}_${ts}`);
 
-  if (!session) {
-    console.log(`[open_box_${boxIndex}] 세션 없음: ${sessionKey}`);
-    return;
-  }
+  if (!session || session.opened[idx]) return;
 
-  if (session.opened[boxIndex]) {
-    return;
-  }
+  session.opened[idx] = session.menus[idx];
 
-  // 즉시 열림 표시 (같은 상자 중복 클릭 방지)
-  session.opened[boxIndex] = { menu: session.menus[boxIndex] };
-
-  // 큐 기반 직렬 업데이트 (클릭이 절대 무시되지 않음)
-  const doUpdate = async () => {
-    const blocks = buildMysteryBoxBlocks(session.theme, session.labels, session.opened, session.imageUrls);
-    await client.chat.update({
+  client.chat
+    .update({
       channel,
       ts,
-      text: '🍱 오늘의 점심 미스터리 박스!',
-      blocks,
-    });
-    console.log(`[open_box_${boxIndex}] 상자 열림 (${session.menus[boxIndex].name})`);
-  };
-
-  session.updateQueue = (session.updateQueue || Promise.resolve())
-    .then(doUpdate)
-    .catch((error) => {
-      console.error(`[open_box_${boxIndex}] 업데이트 실패:`, error.data || error.message);
+      text: '오늘의 미스터리 박스!',
+      blocks: buildBlocks(session.labels, session.opened),
+    })
+    .catch((err) => {
+      delete session.opened[idx];
+      console.error(`[box ${idx}]`, err.data || err.message);
     });
 });
 
-// ── 크론 스케줄링 (평일 오전 9시 KST = UTC 0시) ──
-const cronSchedule = process.env.CRON_SCHEDULE || '0 0 * * 1-5';
-const lunchChannelId = process.env.LUNCH_CHANNEL_ID;
+// ── 크론 (평일 09:00 KST = 00:00 UTC) ──
 
-if (lunchChannelId) {
-  cron.schedule(cronSchedule, async () => {
-    try {
-      await sendMysteryBox(lunchChannelId);
-      console.log(`[${new Date().toISOString()}] 미스터리 박스 전송 완료`);
-    } catch (error) {
-      console.error(`[${new Date().toISOString()}] 미스터리 박스 전송 실패:`, error);
-    }
-  });
-  console.log(`크론 스케줄 등록: ${cronSchedule} → #${lunchChannelId}`);
+const CRON = process.env.CRON_SCHEDULE || '0 0 * * 1-5';
+const CH = process.env.LUNCH_CHANNEL_ID;
+
+if (CH) {
+  cron.schedule(CRON, () => send(CH).catch(console.error));
+  console.log(`크론: ${CRON} → #${CH}`);
 }
 
-// ── 앱 시작 ──
+// ── 시작 ──
+
 (async () => {
+  // 소켓 모드 핑/퐁 타임아웃 늘리기 (기본 5초 → 15초)
+  if (app.receiver?.client) {
+    app.receiver.client.clientPingTimeoutMS = 15000;
+    app.receiver.client.serverPingTimeoutMS = 60000;
+  }
+  console.log('연결 중...');
+
+  // 디버그: WebSocket 이벤트 모니터링
+  const client = app.receiver.client;
+  client.on('connected', () => console.log('[DEBUG] connected'));
+  client.on('connecting', () => console.log('[DEBUG] connecting'));
+  client.on('disconnected', () => console.log('[DEBUG] disconnected'));
+  client.on('authenticated', () => console.log('[DEBUG] authenticated'));
+  client.on('ready', () => console.log('[DEBUG] ready'));
+  client.on('error', (e) => console.log('[DEBUG] error:', e.message || e));
+  client.on('close', () => console.log('[DEBUG] close'));
+  client.on('unable_to_socket_mode_start', (e) => console.log('[DEBUG] unable_to_start:', e));
+
   await app.start();
-  console.log('⚡ 점심 미스터리 박스 봇이 실행 중입니다!');
+  console.log('봇 실행 중');
 })();
