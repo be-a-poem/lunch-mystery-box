@@ -412,6 +412,55 @@ body {
 .prank-result .food-plate { background: #333 !important; border-color: #ff4444 !important; box-shadow: 0 0 20px rgba(255,0,0,0.3); }
 .prank-result .menu-name { color: #ff4444; background: #1a1a1a; border-color: #ff4444; white-space: normal; }
 
+/* ===== 볼륨 컨트롤 ===== */
+.volume-control {
+  position: fixed;
+  top: 12px; right: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  z-index: 9999;
+  background: var(--bubble-bg);
+  border: 3px solid var(--pixel-border);
+  padding: 6px 10px;
+  box-shadow: 3px 3px 0 var(--pixel-border);
+  transition: background 0.6s, border-color 0.6s;
+}
+.volume-btn {
+  font-size: 18px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px;
+  line-height: 1;
+  user-select: none;
+}
+.volume-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 60px;
+  height: 6px;
+  background: var(--pixel-border);
+  outline: none;
+  cursor: pointer;
+}
+.volume-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  background: var(--bubble-text);
+  border: 2px solid var(--pixel-border);
+  cursor: pointer;
+}
+.volume-slider::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  background: var(--bubble-text);
+  border: 2px solid var(--pixel-border);
+  cursor: pointer;
+}
+
 /* ===== 반응형 ===== */
 @media (max-width: 650px) {
   .boxes { gap: 12px; }
@@ -436,7 +485,223 @@ body {
 <div class="subtitle">상자를 클릭해서 오늘의 점심을 확인하세요!</div>
 <div class="boxes" id="boxes"></div>
 <button class="retry-btn" id="retryBtn">RETRY ↻</button>
+<div class="volume-control">
+  <button class="volume-btn" id="muteBtn">🔇</button>
+  <input type="range" class="volume-slider" id="volumeSlider" min="0" max="100" value="50">
+</div>
 <script>
+// ===== SOUND ENGINE =====
+const Sound = (() => {
+  let ctx = null;
+  let masterGain = null;
+  let bgmGain = null;
+  let isMuted = true;
+  let volume = 0.5;
+  let bgmInterval = null;
+
+  function init() {
+    if (ctx) return;
+    ctx = new (window.AudioContext || window.webkitAudioContext)();
+    masterGain = ctx.createGain();
+    masterGain.gain.value = 0;
+    masterGain.connect(ctx.destination);
+    bgmGain = ctx.createGain();
+    bgmGain.gain.value = 0;
+    bgmGain.connect(masterGain);
+  }
+
+  function resume() {
+    if (ctx && ctx.state === 'suspended') ctx.resume();
+  }
+
+  function setVolume(v) {
+    volume = v;
+    if (masterGain && !isMuted) masterGain.gain.value = v;
+  }
+
+  function setMuted(m) {
+    isMuted = m;
+    if (masterGain) masterGain.gain.value = m ? 0 : volume;
+  }
+
+  // --- BGM: 8-bit retro loop ---
+  function playNote(freq, startTime, duration, type, gainNode, vol) {
+    if (!ctx) return;
+    const osc = ctx.createOscillator();
+    const g = ctx.createGain();
+    osc.type = type || 'square';
+    osc.frequency.setValueAtTime(freq, startTime);
+    g.gain.setValueAtTime(vol || 0.08, startTime);
+    g.gain.linearRampToValueAtTime(0, startTime + duration);
+    osc.connect(g);
+    g.connect(gainNode);
+    osc.start(startTime);
+    osc.stop(startTime + duration);
+  }
+
+  function playBGMLoop() {
+    if (!ctx) return;
+    const now = ctx.currentTime;
+    const bpm = 140;
+    const beat = 60 / bpm;
+    // Melody: bright cute 8-bit tune (C major pentatonic)
+    const melody = [
+      523, 587, 659, 784, 659, 587, 523, 659,
+      784, 880, 784, 659, 523, 587, 659, 523,
+      392, 440, 523, 587, 523, 440, 392, 523,
+      659, 784, 880, 784, 659, 523, 587, 523
+    ];
+    // Bass: simple chord root pattern
+    const bass = [
+      262, 262, 349, 349, 392, 392, 262, 262,
+      262, 262, 349, 349, 392, 392, 262, 262,
+      196, 196, 262, 262, 262, 262, 196, 196,
+      262, 262, 349, 349, 392, 392, 262, 262
+    ];
+    const loopLen = melody.length * beat;
+    for (let i = 0; i < melody.length; i++) {
+      const t = now + i * beat;
+      playNote(melody[i], t, beat * 0.8, 'square', bgmGain, 0.06);
+      playNote(bass[i], t, beat * 0.9, 'triangle', bgmGain, 0.04);
+    }
+    return loopLen;
+  }
+
+  function startBGM() {
+    init();
+    if (bgmInterval) return;
+    function loop() {
+      const len = playBGMLoop();
+      bgmInterval = setTimeout(loop, len * 1000);
+    }
+    loop();
+  }
+
+  function stopBGM() {
+    if (bgmInterval) { clearTimeout(bgmInterval); bgmInterval = null; }
+  }
+
+  // --- SFX ---
+  function playHover() {
+    init(); resume();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const g = ctx.createGain();
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(1200, now);
+    osc.frequency.linearRampToValueAtTime(800, now + 0.05);
+    g.gain.setValueAtTime(0.12, now);
+    g.gain.linearRampToValueAtTime(0, now + 0.05);
+    osc.connect(g);
+    g.connect(masterGain);
+    osc.start(now);
+    osc.stop(now + 0.05);
+  }
+
+  function playFanfare() {
+    init(); resume();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+    const notes = [523, 659, 784, 1047]; // C5-E5-G5-C6
+    notes.forEach((freq, i) => {
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(freq, now + i * 0.1);
+      g.gain.setValueAtTime(0.15, now + i * 0.1);
+      g.gain.linearRampToValueAtTime(0, now + i * 0.1 + 0.15);
+      osc.connect(g);
+      g.connect(masterGain);
+      osc.start(now + i * 0.1);
+      osc.stop(now + i * 0.1 + 0.15);
+    });
+  }
+
+  function playFail() {
+    init(); resume();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+    // Descending buzzer
+    const osc = ctx.createOscillator();
+    const g = ctx.createGain();
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(400, now);
+    osc.frequency.linearRampToValueAtTime(80, now + 0.5);
+    g.gain.setValueAtTime(0.12, now);
+    g.gain.linearRampToValueAtTime(0, now + 0.5);
+    osc.connect(g);
+    g.connect(masterGain);
+    osc.start(now);
+    osc.stop(now + 0.5);
+    // Noise burst
+    const bufLen = ctx.sampleRate * 0.3;
+    const buf = ctx.createBuffer(1, bufLen, ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < bufLen; i++) data[i] = (Math.random() * 2 - 1) * 0.3;
+    const noise = ctx.createBufferSource();
+    const ng = ctx.createGain();
+    noise.buffer = buf;
+    ng.gain.setValueAtTime(0.06, now);
+    ng.gain.linearRampToValueAtTime(0, now + 0.3);
+    noise.connect(ng);
+    ng.connect(masterGain);
+    noise.start(now);
+    noise.stop(now + 0.3);
+  }
+
+  function playRetry() {
+    init(); resume();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+    [523, 659].forEach((freq, i) => { // C5, E5
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, now + i * 0.1);
+      g.gain.setValueAtTime(0.15, now + i * 0.1);
+      g.gain.linearRampToValueAtTime(0, now + i * 0.1 + 0.12);
+      osc.connect(g);
+      g.connect(masterGain);
+      osc.start(now + i * 0.1);
+      osc.stop(now + i * 0.1 + 0.12);
+    });
+  }
+
+  return { init, resume, setVolume, setMuted, isMuted: () => isMuted, startBGM, stopBGM, playHover, playFanfare, playFail, playRetry };
+})();
+
+// Volume control UI
+document.addEventListener('DOMContentLoaded', () => {
+  const muteBtn = document.getElementById('muteBtn');
+  const slider = document.getElementById('volumeSlider');
+
+  muteBtn.addEventListener('click', () => {
+    Sound.init(); Sound.resume();
+    const muted = !Sound.isMuted();
+    Sound.setMuted(muted);
+    muteBtn.textContent = muted ? '🔇' : '🔊';
+    if (!muted) Sound.startBGM();
+  });
+
+  slider.addEventListener('input', () => {
+    Sound.init(); Sound.resume();
+    Sound.setVolume(slider.value / 100);
+    if (Sound.isMuted() && slider.value > 0) {
+      Sound.setMuted(false);
+      muteBtn.textContent = '🔊';
+      Sound.startBGM();
+    }
+  });
+
+  // Resume AudioContext on first user interaction
+  document.addEventListener('click', () => { Sound.init(); Sound.resume(); }, { once: true });
+  document.addEventListener('touchstart', () => { Sound.init(); Sound.resume(); }, { once: true });
+
+  // Start BGM (muted) on load
+  Sound.startBGM();
+});
+
 // ===== MOOD SYSTEM =====
 const moodDefs = {
   cute: {
@@ -1136,12 +1401,21 @@ function initGame() {
         </div>`;
     }
 
+    box.addEventListener('mouseenter', () => {
+      if (!box.classList.contains('opened')) Sound.playHover();
+    });
+
     box.addEventListener('click', () => {
       if (box.classList.contains('opened')) return;
       box.classList.add('opened');
       box.querySelector('.glow-burst').classList.add('active');
       spawnParticles(box);
-      if (thisPrank) document.body.classList.add('screen-shake');
+      if (thisPrank) {
+        document.body.classList.add('screen-shake');
+        Sound.playFail();
+      } else {
+        Sound.playFanfare();
+      }
       setTimeout(() => {
         box.querySelector('.menu-result').classList.add('show');
         if (thisPrank) setTimeout(() => document.body.classList.remove('screen-shake'), 500);
@@ -1157,6 +1431,7 @@ function initGame() {
 }
 
 document.getElementById('retryBtn').addEventListener('click', () => {
+  Sound.playRetry();
   const boxesEl = document.getElementById('boxes');
   boxesEl.style.opacity = '0';
   boxesEl.style.transform = 'scale(0.95)';
